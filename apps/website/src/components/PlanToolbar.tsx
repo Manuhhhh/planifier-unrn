@@ -6,6 +6,7 @@ import { MAX_PLAN_FILE_BYTES, parsePlanFile, planFileName, serializePlan } from 
 import { newId } from "../storage.ts";
 import { useConfirm } from "./Confirm.tsx";
 import { StartPicker } from "./StartPicker.tsx";
+import { ChevronDown } from "./icons.tsx";
 import { Button, fieldClass, mutedClass, problemClass } from "./ui.tsx";
 
 interface Props {
@@ -25,6 +26,8 @@ export function PlanToolbar({ plan, canRemove, onChange, onDuplicate, onImport, 
   const confirm = useConfirm();
   const fileInput = useRef<HTMLInputElement>(null);
   const [notice, setNotice] = useState<Notice>();
+  // On a phone the plan's settings sit behind a button; on a wide screen they are always shown.
+  const [open, setOpen] = useState(false);
   useEffect(() => {
     if (notice === undefined) return;
     const timer = setTimeout(() => setNotice(undefined), 6000);
@@ -58,72 +61,87 @@ export function PlanToolbar({ plan, canRemove, onChange, onDuplicate, onImport, 
 
   // Uncontrolled inputs keyed by the saved value: typing is free, the plan changes on blur.
   return (
-    <form onSubmit={(event) => event.preventDefault()} className="flex flex-wrap items-end gap-4">
-      <label className={labelClass}>
-        Nombre
-        <input
-          key={`${plan.id}-${plan.name}`}
-          type="text"
-          maxLength={40}
-          defaultValue={plan.name}
-          onBlur={(event) => onChange({ ...plan, name: event.target.value.trim() || plan.name })}
-          className={fieldClass}
-        />
-      </label>
+    <form
+      onSubmit={(event) => event.preventDefault()}
+      className="flex flex-wrap items-end gap-4 max-md:w-full"
+    >
+      <Button
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center justify-between md:hidden"
+      >
+        Ajustes del plan
+        <ChevronDown className={`transition-transform ${open ? "rotate-180" : ""}`} />
+      </Button>
 
-      <div className={labelClass}>
-        <span>Empieza en</span>
-        <StartPicker plan={plan} onChange={onChange} />
+      <div className={`${open ? "flex" : "hidden"} w-full flex-col gap-3 md:contents`}>
+        <label className={labelClass}>
+          Nombre
+          <input
+            key={`${plan.id}-${plan.name}`}
+            type="text"
+            maxLength={40}
+            defaultValue={plan.name}
+            onBlur={(event) => onChange({ ...plan, name: event.target.value.trim() || plan.name })}
+            className={fieldClass}
+          />
+        </label>
+
+        <div className={labelClass}>
+          <span>Empieza en</span>
+          <StartPicker plan={plan} onChange={onChange} />
+        </div>
+
+        <span className="grid grid-cols-2 gap-2 md:flex">
+          <Button
+            onClick={() =>
+              onDuplicate({
+                ...plan,
+                id: newId(),
+                name: `${plan.name} (copia)`,
+                approved: [...plan.approved],
+                terms: plan.terms.map((courses) => [...courses]),
+              })
+            }
+          >
+            Duplicar
+          </Button>
+          <Button onClick={() => downloadText(planFileName(plan), serializePlan(plan))}>
+            Exportar
+          </Button>
+          <Button onClick={() => fileInput.current?.click()}>Importar</Button>
+          <Button
+            disabled={isEmpty}
+            onClick={async () => {
+              const confirmed = await confirm({
+                title: `¿Vaciar «${plan.name}»?`,
+                message:
+                  courseCount > 0
+                    ? `Se quitan las ${courseCount} ${courseCount === 1 ? "materia" : "materias"} del plan y se vuelve al primer cuatrimestre. No se puede deshacer.`
+                    : "Se quitan los cuatrimestres y se vuelve al primero.",
+                confirmLabel: "Vaciar plan",
+              });
+              if (confirmed) onChange(clearPlan(plan));
+            }}
+          >
+            Vaciar
+          </Button>
+          <Button
+            className="max-md:col-span-2"
+            disabled={!canRemove}
+            onClick={async () => {
+              const confirmed = await confirm({
+                title: `¿Eliminar «${plan.name}»?`,
+                message: "Se pierde el plan con todos sus cuatrimestres. No se puede deshacer.",
+                confirmLabel: "Eliminar plan",
+              });
+              if (confirmed) onRemove(plan.id);
+            }}
+          >
+            Eliminar plan
+          </Button>
+        </span>
       </div>
-
-      <span className="flex gap-2">
-        <Button
-          onClick={() =>
-            onDuplicate({
-              ...plan,
-              id: newId(),
-              name: `${plan.name} (copia)`,
-              approved: [...plan.approved],
-              terms: plan.terms.map((courses) => [...courses]),
-            })
-          }
-        >
-          Duplicar
-        </Button>
-        <Button onClick={() => downloadText(planFileName(plan), serializePlan(plan))}>
-          Exportar
-        </Button>
-        <Button onClick={() => fileInput.current?.click()}>Importar</Button>
-        <Button
-          disabled={isEmpty}
-          onClick={async () => {
-            const confirmed = await confirm({
-              title: `¿Vaciar «${plan.name}»?`,
-              message:
-                courseCount > 0
-                  ? `Se quitan las ${courseCount} ${courseCount === 1 ? "materia" : "materias"} del plan y se vuelve al primer cuatrimestre. No se puede deshacer.`
-                  : "Se quitan los cuatrimestres y se vuelve al primero.",
-              confirmLabel: "Vaciar plan",
-            });
-            if (confirmed) onChange(clearPlan(plan));
-          }}
-        >
-          Vaciar
-        </Button>
-        <Button
-          disabled={!canRemove}
-          onClick={async () => {
-            const confirmed = await confirm({
-              title: `¿Eliminar «${plan.name}»?`,
-              message: "Se pierde el plan con todos sus cuatrimestres. No se puede deshacer.",
-              confirmLabel: "Eliminar plan",
-            });
-            if (confirmed) onRemove(plan.id);
-          }}
-        >
-          Eliminar plan
-        </Button>
-      </span>
 
       <input
         ref={fileInput}

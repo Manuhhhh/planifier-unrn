@@ -4,6 +4,8 @@ import { ConfirmProvider } from "./components/Confirm.tsx";
 import { CourseList } from "./components/CourseList.tsx";
 import { PlanGraph } from "./components/PlanGraph.tsx";
 import { PlanPanel } from "./components/PlanPanel.tsx";
+import { PaneSwitch } from "./components/PaneSwitch.tsx";
+import type { Pane } from "./components/PaneSwitch.tsx";
 import { PlanTabs } from "./components/PlanTabs.tsx";
 import { PlanToolbar } from "./components/PlanToolbar.tsx";
 import { PreferencesMenu } from "./components/PreferencesMenu.tsx";
@@ -17,6 +19,7 @@ import {
   mainClass,
   mutedClass,
   pageClass,
+  floatingBarRoom,
   panelClass,
   shellClass,
 } from "./components/ui.tsx";
@@ -29,6 +32,9 @@ export function App() {
   const [query, setQuery] = useState("");
   const [onlyEnabled, setOnlyEnabled] = useState(true);
   const [view, setView] = useState<View>("edit");
+  // Only a phone shows one panel at a time; wider screens show both.
+  const [pane, setPane] = useState<Pane>("courses");
+  const planned = plan.approved.length + plan.terms.reduce((sum, term) => sum + term.length, 0);
 
   return (
     <MotionConfig reducedMotion={preferences.animations ? "user" : "always"}>
@@ -38,7 +44,7 @@ export function App() {
             <Header>
               <PreferencesMenu preferences={preferences} onChange={setPreferences} />
             </Header>
-            <div className={pageClass}>
+            <div className={`${pageClass} ${view === "edit" ? floatingBarRoom : ""}`}>
               <Reveal
                 delay={0.08}
                 className="relative z-20 mb-3 flex flex-wrap items-end justify-between gap-x-6 gap-y-3"
@@ -62,8 +68,13 @@ export function App() {
                     </Stepper>
                   </Reveal>
 
+                  <PaneSwitch pane={pane} planned={planned} onChange={setPane} />
+
                   <main className={mainClass}>
-                    <Reveal delay={0.24} className="min-h-0">
+                    <Reveal
+                      delay={0.24}
+                      className={`min-h-0 min-w-0 ${pane === "courses" ? "" : "max-md:hidden"}`}
+                    >
                       <section className={panelClass}>
                         <CourseList
                           plan={plan}
@@ -75,7 +86,10 @@ export function App() {
                         />
                       </section>
                     </Reveal>
-                    <Reveal delay={0.32} className="min-h-0">
+                    <Reveal
+                      delay={0.32}
+                      className={`min-h-0 min-w-0 ${pane === "plan" ? "" : "max-md:hidden"}`}
+                    >
                       <section className={panelClass}>
                         <PlanPanel plan={plan} onChange={update} />
                       </section>
@@ -90,7 +104,7 @@ export function App() {
                     </div>
                   </Reveal>
                   <main className={mainClass}>
-                    <Reveal delay={0.08} className="min-h-0 md:col-span-2">
+                    <Reveal delay={0.08} className="min-h-0 min-w-0 md:col-span-2">
                       <section className={panelClass}>
                         <PlanGraph plan={plan} />
                       </section>
@@ -102,8 +116,11 @@ export function App() {
               <Reveal delay={0.4}>
                 <footer className={`mt-3 text-xs ${mutedClass}`}>
                   Se asume que aprobás los finales de cada cuatrimestre antes de empezar el
-                  siguiente. Correlatividades según la Res. CSDEyVE 015/22. Pasá el mouse sobre una
-                  materia para ver qué necesita y qué habilita.
+                  siguiente. Correlatividades según la Res. CSDEyVE 015/22.
+                  <span className="max-md:hidden">
+                    {" "}
+                    Pasá el mouse sobre una materia para ver qué necesita y qué habilita.
+                  </span>
                 </footer>
               </Reveal>
             </div>

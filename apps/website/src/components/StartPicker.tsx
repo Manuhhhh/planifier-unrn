@@ -50,7 +50,7 @@ export function StartPicker({ plan, onChange }: Props) {
         aria-controls={panelId}
         aria-label={`Empieza en ${plan.startYear}, ${ordinal(plan.startTerm)} cuatrimestre`}
         onClick={() => setOpen((value) => !value)}
-        className={`${fieldClass} flex cursor-pointer items-center gap-2 transition duration-150 hover:border-red-700 active:scale-95 dark:hover:border-red-400`}
+        className={`${fieldClass} flex cursor-pointer items-center gap-2 max-md:w-full transition duration-150 hover:border-red-700 active:scale-95 dark:hover:border-red-400`}
       >
         <Calendar />
         <span>
@@ -75,7 +75,7 @@ export function StartPicker({ plan, onChange }: Props) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.97, transition: { duration: 0.12 } }}
             transition={{ type: "spring", stiffness: 420, damping: 30 }}
-            className="absolute left-0 top-full z-20 mt-2 w-88 origin-top-left rounded-xl border border-stone-200 bg-white p-4 shadow-xl dark:border-stone-700 dark:bg-stone-800"
+            className="absolute left-0 top-full z-20 mt-2 w-88 max-w-[calc(100vw-2rem)] origin-top-left rounded-xl border border-stone-200 bg-white p-4 shadow-xl dark:border-stone-700 dark:bg-stone-800"
           >
             <p className="mb-2 text-sm font-semibold text-stone-500 dark:text-stone-400">Año</p>
             <div className="mb-4 flex items-center justify-between rounded-xl bg-stone-100 p-2 dark:bg-stone-900">

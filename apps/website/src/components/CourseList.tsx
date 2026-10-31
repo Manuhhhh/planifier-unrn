@@ -1,11 +1,21 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { APPROVED_SLOT, CURRICULUM, addCourse, locate, problemsFor, searchCourses } from "planner";
+import {
+  APPROVED_SLOT,
+  CURRICULUM,
+  addCourse,
+  canRetake,
+  locate,
+  problemsFor,
+  searchCourses,
+} from "planner";
 import type { Course, StudyPlan, Year } from "planner";
 import { rangeBetween } from "../dragRange.ts";
 import { courseMeta, describeProblem, ordinal, slotLabel } from "../labels.ts";
+import { useCoarsePointer } from "../hooks/useCoarsePointer.ts";
 import { useCourseHover } from "./RelationHover.tsx";
-import { Warning } from "./icons.tsx";
+import { SELECTION_SHEET_ROOM, SelectionSheet } from "./SelectionSheet.tsx";
+import { CircleX, Warning } from "./icons.tsx";
 import { Checkbox, fieldClass, mutedClass, problemClass } from "./ui.tsx";
 
 const byCode = new Map(CURRICULUM.map((course) => [course.code, course]));
@@ -36,7 +46,7 @@ export function CourseList({
 
   const { rows, hidden } = useMemo(() => {
     const ranked = searchCourses(query, CURRICULUM).filter(
-      (code) => locate(plan, code) === undefined,
+      (code) => locate(plan, code) === undefined || canRetake(plan, code),
     );
     const enabled = ranked.filter(
       (code) => problemsFor(byCode.get(code)!, plan, plan.active, CURRICULUM).length === 0,
@@ -62,6 +72,17 @@ export function CourseList({
   // A drag that ends on another card must not also count as a click on it.
   const dragged = useRef(false);
   const covered = new Set(drag ? rangeBetween(order, drag.anchor, drag.current) : []);
+
+  // With a finger a tap only selects; a sheet shows the courses' relations and asks to confirm.
+  const touch = useCoarsePointer();
+  const [selected, setSelected] = useState<string[]>([]);
+  const chosen = selected.filter((code) => order.includes(code));
+  // The selection belongs to the cuatrimestre it was made for.
+  useEffect(() => setSelected([]), [plan.active]);
+  const toggle = (code: string) =>
+    setSelected((codes) =>
+      codes.includes(code) ? codes.filter((entry) => entry !== code) : [...codes, code],
+    );
 
   useEffect(() => {
     if (drag === undefined) return;
@@ -101,14 +122,15 @@ export function CourseList({
         : "No hay materias habilitadas para este cuatrimestre. Podés dejarlo vacío y pasar al siguiente."
       : "Ya agregaste todas las materias.";
 
+  // The room for the sheet is kept whether or not something is selected, so selecting never moves the list.
   return (
-    <div>
+    <div className={touch ? SELECTION_SHEET_ROOM : ""}>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input
           type="search"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Buscar por tema o nombre (ej. redes, IA, bases de datos)"
+          placeholder="Buscar materias (ej. redes, IA)"
           aria-label="Buscar materias"
           className={`${fieldClass} min-w-56 flex-1`}
         />
@@ -134,7 +156,9 @@ export function CourseList({
       </h2>
 
       <p className={`-mt-2 mb-3 text-xs ${mutedClass}`}>
-        Mantené presionado y arrastrá sobre varias materias para agregarlas juntas.
+        {touch
+          ? "Tocá las materias que quieras y confirmá para agregarlas juntas."
+          : "Mantené presionado y arrastrá sobre varias materias para agregarlas juntas."}
       </p>
 
       <motion.div layout className="flex select-none flex-col gap-2">
@@ -156,7 +180,7 @@ export function CourseList({
                 key={row.course.code}
                 course={row.course}
                 plan={plan}
-                covered={covered.has(row.course.code)}
+                covered={covered.has(row.course.code) || chosen.includes(row.course.code)}
                 onPress={(code) => {
                   dragged.current = false;
                   setDrag({ anchor: code, current: code });
@@ -166,7 +190,8 @@ export function CourseList({
                     dragged.current = false;
                     return;
                   }
-                  onChange(addCourse(plan, code));
+                  if (touch) toggle(code);
+                  else onChange(addCourse(plan, code));
                 }}
               />
             ),
@@ -200,6 +225,20 @@ export function CourseList({
           )}
         </AnimatePresence>
       </motion.div>
+
+      <AnimatePresence>
+        {touch && chosen.length > 0 && (
+          <SelectionSheet
+            plan={plan}
+            codes={chosen}
+            onCancel={() => setSelected([])}
+            onConfirm={() => {
+              onChange(chosen.reduce(addCourse, plan));
+              setSelected([]);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -220,6 +259,7 @@ function CourseCard({
 }) {
   const hover = useCourseHover(course.code);
   const problems = problemsFor(course, plan, plan.active, CURRICULUM);
+  const retake = canRetake(plan, course.code);
 
   return (
     <motion.button
@@ -249,6 +289,11 @@ function CourseCard({
     >
       <span className="font-semibold">{course.name}</span>
       <small className={mutedClass}>{courseMeta(course)}</small>
+      {retake && (
+        <small className={`font-semibold ${problemClass}`}>
+          <CircleX /> Desaprobada: tocala para volver a cursarla acá
+        </small>
+      )}
       {problems.map((problem) => (
         <small key={JSON.stringify(problem)} className={problemClass}>
           <Warning /> {describeProblem(problem, plan, nameOf)}

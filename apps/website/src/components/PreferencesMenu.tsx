@@ -41,7 +41,7 @@ export function PreferencesMenu({ preferences, onChange }: Props) {
         >
           <Settings />
         </motion.span>
-        Preferencias
+        <span className="max-sm:sr-only">Preferencias</span>
       </Button>
 
       <AnimatePresence>
@@ -54,7 +54,7 @@ export function PreferencesMenu({ preferences, onChange }: Props) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.97, transition: { duration: 0.12 } }}
             transition={{ type: "spring", stiffness: 420, damping: 30 }}
-            className="absolute right-0 top-full z-20 mt-2 w-72 origin-top-right rounded-xl border border-stone-200 bg-white p-4 shadow-xl dark:border-stone-700 dark:bg-stone-800"
+            className="absolute right-0 top-full z-20 mt-2 w-72 max-w-[calc(100vw-2rem)] origin-top-right rounded-xl border border-stone-200 bg-white p-4 shadow-xl dark:border-stone-700 dark:bg-stone-800"
           >
             <div role="radiogroup" aria-label="Tema" className="mb-4">
               <p className={`mb-2 text-sm font-semibold ${mutedClass}`}>Tema</p>

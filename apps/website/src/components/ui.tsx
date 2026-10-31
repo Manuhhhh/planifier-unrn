@@ -9,7 +9,10 @@ export const shellClass = "flex min-h-dvh w-full flex-col md:h-dvh";
 export const headerClass =
   "relative z-30 flex items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 py-3 md:px-8 dark:border-stone-700 dark:bg-stone-900";
 export const pageClass = "flex min-h-0 flex-1 flex-col px-4 pb-4 pt-4 md:px-8";
-export const mainClass = "mt-4 grid min-h-0 flex-1 gap-6 md:grid-cols-2";
+/** Extra room at the bottom of a phone page, so the floating cuatrimestre bar never covers content. */
+export const floatingBarRoom = "max-md:pb-28";
+// `grid-cols-1` is minmax(0, 1fr): without it a wide child (the graph) stretches the whole page.
+export const mainClass = "mt-4 grid min-h-0 flex-1 grid-cols-1 gap-6 md:grid-cols-2";
 
 export const fieldClass =
   "rounded-md border border-stone-200 bg-white px-2 py-1.5 transition-shadow focus:shadow-md dark:border-stone-700 dark:bg-stone-800";
@@ -55,7 +58,7 @@ export function IconButton({
   return (
     <button
       type="button"
-      className={`cursor-pointer px-2 text-stone-500 ${spin ? "hover:rotate-90" : ""} hover:text-red-700 dark:text-stone-400 dark:hover:text-red-400 ${pressable} ${className}`}
+      className={`cursor-pointer px-2 text-stone-500 max-md:p-2.5 ${spin ? "hover:rotate-90" : ""} hover:text-red-700 dark:text-stone-400 dark:hover:text-red-400 ${pressable} ${className}`}
       {...props}
     />
   );

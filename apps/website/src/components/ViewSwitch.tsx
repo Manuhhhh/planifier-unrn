@@ -21,7 +21,7 @@ export function ViewSwitch({ view, onChange }: { view: View; onChange: (view: Vi
           type="button"
           aria-pressed={view === value}
           onClick={() => onChange(value)}
-          className={`flex cursor-pointer items-center gap-1.5 px-3 py-1.5 transition-colors ${
+          className={`flex cursor-pointer items-center gap-1.5 px-3 py-1.5 max-md:px-2.5 transition-colors ${
             view === value
               ? "bg-red-100 font-semibold text-red-800 dark:bg-red-950 dark:text-red-200"
               : "bg-white hover:bg-stone-100 dark:bg-stone-800 dark:hover:bg-stone-700"

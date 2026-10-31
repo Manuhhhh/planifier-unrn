@@ -28,9 +28,12 @@ export function Header({ children }: { children: ReactNode }) {
       <div className="flex min-w-0 items-center gap-3">
         <BrandMark />
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-semibold leading-tight">Planificador de cursada</h1>
+          <h1 className="truncate text-base font-semibold leading-tight md:text-lg">
+            Planificador de cursada
+          </h1>
           <p className={`truncate text-xs ${mutedClass}`}>
-            UNRN · Licenciatura en Sistemas · Plan 2022
+            <span className="max-sm:hidden">UNRN · Licenciatura en Sistemas · Plan 2022</span>
+            <span className="sm:hidden">UNRN · Lic. en Sistemas · Plan 2022</span>
           </p>
         </div>
       </div>

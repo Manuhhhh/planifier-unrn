@@ -131,11 +131,11 @@ function Slot({
           transition={spring}
         />
       )}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-2">
         <button
           type="button"
           onClick={() => onChange(goTo(plan, slot))}
-          className="cursor-pointer font-semibold transition-colors hover:text-red-700 dark:hover:text-red-400"
+          className="cursor-pointer text-left font-semibold transition-colors hover:text-red-700 max-md:py-1.5 dark:hover:text-red-400"
         >
           {slotLabel(plan, slot)}
         </button>
@@ -234,7 +234,7 @@ function PlannedCourse({
         animate={{ opacity: 0 }}
         transition={{ duration: 0.9 }}
       />
-      <span className="relative flex-1 font-medium">
+      <span className="relative min-w-0 flex-1 font-medium max-md:py-1.5">
         <span className={failed ? "text-stone-500 line-through dark:text-stone-400" : ""}>
           {nameOf(code)}
         </span>

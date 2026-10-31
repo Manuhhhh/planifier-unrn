@@ -39,39 +39,49 @@ export function Stepper({
       data-testid="stepper"
       className="flex flex-wrap items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 shadow-sm dark:border-stone-700 dark:bg-stone-800"
     >
-      <Button
-        disabled={plan.active === APPROVED_SLOT}
-        onClick={() => onChange(stepSlot(plan, -1))}
-        className="inline-flex items-center gap-1.5"
-      >
-        <ChevronLeft /> Anterior
-      </Button>
+      {/* On a phone the way through the cuatrimestres floats at the bottom, within thumb's reach. */}
+      <div className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex items-center gap-2 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl md:contents dark:border-stone-700 dark:bg-stone-800">
+        <Button
+          disabled={plan.active === APPROVED_SLOT}
+          onClick={() => onChange(stepSlot(plan, -1))}
+          className="inline-flex items-center gap-1.5 max-md:px-4 max-md:py-2.5"
+        >
+          <ChevronLeft /> <span className="max-md:sr-only">Anterior</span>
+        </Button>
 
-      <div className="relative h-7 min-w-56 overflow-hidden text-center" data-testid="slot-label">
-        <AnimatePresence mode="popLayout" custom={direction} initial={false}>
-          <motion.strong
-            key={label}
-            custom={direction}
-            variants={labelVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ duration: 0.22 }}
-            className="absolute inset-x-0"
-          >
-            {label}
-          </motion.strong>
-        </AnimatePresence>
+        <div
+          className="relative h-7 overflow-hidden text-center max-md:min-w-0 max-md:flex-1 max-md:text-sm md:min-w-56"
+          data-testid="slot-label"
+        >
+          <AnimatePresence mode="popLayout" custom={direction} initial={false}>
+            <motion.strong
+              key={label}
+              custom={direction}
+              variants={labelVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.22 }}
+              className="absolute inset-x-0"
+            >
+              {label}
+            </motion.strong>
+          </AnimatePresence>
+        </div>
+
+        <Button
+          onClick={() => onChange(stepSlot(plan, 1))}
+          className="inline-flex items-center gap-1.5 max-md:px-4 max-md:py-2.5"
+        >
+          <span className="max-md:sr-only md:hidden">
+            {isLast ? "Siguiente cuatrimestre" : "Siguiente"}
+          </span>
+          <span className="max-md:hidden">{isLast ? "Siguiente cuatrimestre" : "Siguiente"}</span>
+          <ChevronRight />
+        </Button>
       </div>
 
-      <Button
-        onClick={() => onChange(stepSlot(plan, 1))}
-        className="inline-flex items-center gap-1.5"
-      >
-        {isLast ? "Siguiente cuatrimestre" : "Siguiente"} <ChevronRight />
-      </Button>
-
-      <div className="ml-auto" data-testid="status">
+      <div className="max-md:flex-1 md:ml-auto" data-testid="status">
         <AnimatePresence mode="wait" initial={false}>
           {warnings > 0 ? (
             <motion.span
@@ -80,9 +90,12 @@ export function Stepper({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.6 }}
               transition={{ type: "spring", stiffness: 500, damping: 18 }}
-              className="inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-sm font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+              className="inline-block whitespace-nowrap rounded-full bg-amber-100 px-2.5 py-0.5 text-sm font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-400"
             >
-              <Warning /> {warnings} {warnings === 1 ? "advertencia" : "advertencias"}
+              <Warning /> {warnings}{" "}
+              <span className="max-sm:sr-only">
+                {warnings === 1 ? "advertencia" : "advertencias"}
+              </span>
             </motion.span>
           ) : (
             <motion.span
@@ -91,7 +104,7 @@ export function Stepper({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.6 }}
               transition={{ type: "spring", stiffness: 500, damping: 18 }}
-              className="inline-block text-sm font-semibold text-green-700 dark:text-green-400"
+              className="inline-block whitespace-nowrap text-sm font-semibold text-green-700 dark:text-green-400"
             >
               <CircleCheck /> Plan coherente
             </motion.span>

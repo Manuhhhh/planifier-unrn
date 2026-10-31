@@ -11,8 +11,12 @@ interface Props {
 }
 
 export function PlanTabs({ plans, selectedId, onSelect, onAdd }: Props) {
+  // On a phone the tabs scroll sideways, edge to edge, instead of stacking into rows.
   return (
-    <nav aria-label="Planes" className="flex flex-wrap gap-2">
+    <nav
+      aria-label="Planes"
+      className="flex flex-wrap gap-2 max-md:-mx-4 max-md:w-[calc(100%+2rem)] max-md:flex-nowrap max-md:overflow-x-auto max-md:px-4 max-md:py-1"
+    >
       <AnimatePresence initial={false} mode="popLayout">
         {plans.map((plan) => (
           <motion.button
@@ -27,7 +31,7 @@ export function PlanTabs({ plans, selectedId, onSelect, onAdd }: Props) {
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            className={`relative cursor-pointer rounded-md border px-3 py-1.5 transition-colors ${
+            className={`relative max-w-56 shrink-0 cursor-pointer truncate rounded-md border px-3 py-1.5 transition-colors ${
               plan.id === selectedId
                 ? "border-red-700 font-semibold dark:border-red-400"
                 : "border-stone-200 bg-white hover:border-red-700 dark:border-stone-700 dark:bg-stone-800 dark:hover:border-red-400"
@@ -50,7 +54,7 @@ export function PlanTabs({ plans, selectedId, onSelect, onAdd }: Props) {
         type="button"
         onClick={() => onAdd(emptyPlan(newId(), `Plan ${plans.length + 1}`, defaultStart()))}
         whileTap={{ scale: 0.95 }}
-        className="group relative cursor-pointer rounded-md px-3 py-1.5 text-stone-500 transition-colors hover:text-red-700 dark:text-stone-400 dark:hover:text-red-400"
+        className="group relative shrink-0 cursor-pointer whitespace-nowrap rounded-md px-3 py-1.5 text-stone-500 transition-colors hover:text-red-700 dark:text-stone-400 dark:hover:text-red-400"
       >
         {/* The dashed border is an SVG so its dashes can travel around the button on hover. */}
         <svg aria-hidden="true" className="absolute inset-0 size-full overflow-visible">

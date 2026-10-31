@@ -76,7 +76,10 @@ export function useCourseHover(code: CourseCode) {
       if (event.pointerType !== "touch") controls.show(code, event.currentTarget);
     },
     onPointerLeave: controls.hide,
-    onFocus: (event: React.FocusEvent<Element>) => controls.show(code, event.currentTarget),
+    // Only the keyboard: a tap focuses a button too, and the diagram would cover what was tapped.
+    onFocus: (event: React.FocusEvent<Element>) => {
+      if (event.target.matches(":focus-visible")) controls.show(code, event.currentTarget);
+    },
     onBlur: controls.hide,
   };
 }
@@ -110,7 +113,7 @@ function Popover({ hovered }: { hovered: Hovered }) {
 const LEGEND_LABELS = { regular: "Cursada aprobada", approved: "Final aprobado" } as const;
 
 /** Solid arrows mean "cursada aprobada", dashed ones "final aprobado"; a short key says so. */
-function RelationDiagram({ code, plan }: { code: CourseCode; plan: StudyPlan }) {
+export function RelationDiagram({ code, plan }: { code: CourseCode; plan: StudyPlan }) {
   const { width, height, left, right, center, legend, legendY } = layoutDiagram(code, CURRICULUM);
   const course = CURRICULUM.find((entry) => entry.code === code)!;
   const edges = [
