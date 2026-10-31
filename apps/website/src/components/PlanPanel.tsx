@@ -51,14 +51,18 @@ export function PlanPanel({ plan, onChange }: Props) {
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Tu plan</h2>
-        {failed > 0 && (
-          <Button onClick={rearrangePlan} className="flex items-center gap-1.5">
+      {failed > 0 && (
+        // Zero-height sticky row: the button floats at the top right of the panel while its content scrolls.
+        <div className="pointer-events-none sticky top-2 z-10 flex h-0 items-start justify-end">
+          <Button
+            onClick={rearrangePlan}
+            className="pointer-events-auto flex items-center gap-1.5 shadow-md"
+          >
             <Shuffle /> Reacomodar
           </Button>
-        )}
-      </div>
+        </div>
+      )}
+      <h2 className="mb-3 flex min-h-9 items-center text-lg font-semibold">Tu plan</h2>
       {failed > 0 && (
         <p className={`-mt-1 mb-3 text-xs ${mutedClass}`}>
           Las materias que dependen de una desaprobada quedan con advertencia. «Reacomodar» las
