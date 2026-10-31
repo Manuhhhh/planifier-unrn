@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+/* Dark mode is the `dark` class on <html> (set from the preferences), not the OS setting alone. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --animate-shimmer: shimmer 3s linear infinite;
+  --animate-march: march 0.5s linear infinite;
+
+  /* One dash period (6 + 4) per cycle, so the loop is seamless. */
+  @keyframes march {
+    to {
+      stroke-dashoffset: -10;
+    }
+  }
+
+  @keyframes shimmer {
+    from {
+      background-position: 0% 50%;
+    }
+    to {
+      background-position: 200% 50%;
+    }
+  }
+}
+
+:root {
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
+}
+
+/* "Animaciones" off: no CSS transition or animation anywhere (motion is skipped in JS). */
+:root[data-animations="off"] *,
+:root[data-animations="off"] ::before,
+:root[data-animations="off"] ::after {
+  animation: none !important;
+  transition: none !important;
+}

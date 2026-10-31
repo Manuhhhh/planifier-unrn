@@ -1,0 +1,19 @@
+{
+  "name": "planner",
+  "version": "0.0.0",
+  "private": true,
+  "description": "UNRN Licenciatura en Sistemas (Plan 2022) curriculum model and course planner.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2",
+    "vite-plus": "catalog:"
+  }
+}

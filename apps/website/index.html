@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Planificador de cursada UNRN</title>
+    <script>
+      // Apply the saved theme before first paint so the page never flashes the wrong one.
+      try {
+        var prefs = JSON.parse(localStorage.getItem("planifier-unrn:prefs:v1") || "null") || {};
+        var dark =
+          prefs.theme === "dark" ||
+          (prefs.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", dark);
+        if (prefs.animations === false) document.documentElement.dataset.animations = "off";
+      } catch (error) {}
+    </script>
+  </head>
+  <body class="bg-stone-50 text-stone-900 dark:bg-stone-900 dark:text-stone-50">
+    <div id="app"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
