@@ -163,7 +163,7 @@ export function CourseList({
 
       <motion.div layout className="flex select-none flex-col gap-2">
         <AnimatePresence mode="popLayout" initial={false}>
-          {rows.map((row) =>
+          {rows.map((row, index) =>
             row.kind === "year" ? (
               <motion.h3
                 key={`year-${row.year}`}
@@ -171,7 +171,9 @@ export function CourseList({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className={`mt-3 text-xs font-semibold uppercase tracking-wide first:mt-0 ${mutedClass}`}
+                // Not `first:mt-0`: a notice that is still fading out stays in the DOM ahead of the heading and
+                // would give it a margin until it is gone, growing the list for a moment.
+                className={`text-xs font-semibold uppercase tracking-wide ${index === 0 ? "" : "mt-3"} ${mutedClass}`}
               >
                 {ordinal(row.year)} año
               </motion.h3>
