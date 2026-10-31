@@ -3,6 +3,7 @@ import { CURRICULUM } from "../src/curriculum.ts";
 import {
   APPROVED_SLOT,
   addCourse,
+  canRetake,
   clearPlan,
   clearSlot,
   emptyPlan,
@@ -14,6 +15,7 @@ import {
   removeTerm,
   stepSlot,
   termOf,
+  toggleFailed,
 } from "../src/plan.ts";
 import type { StudyPlan } from "../src/plan.ts";
 
@@ -267,5 +269,40 @@ describe("clearPlan", () => {
   test("does not mutate the plan it receives", () => {
     clearPlan(filled);
     expect(filled.terms).toEqual([["V1281"], ["V1283"], []]);
+  });
+});
+
+describe("retaking a failed course", () => {
+  const failedIn0 = plan({
+    terms: [["V1281", "V1282"], [], []],
+    failed: ["V1281"],
+    active: 1,
+  });
+
+  test("can be taken again in a later cuatrimestre only", () => {
+    expect(canRetake(failedIn0, "V1281")).toBe(true);
+    expect(canRetake(goTo(failedIn0, 0), "V1281")).toBe(false);
+    expect(canRetake(goTo(failedIn0, APPROVED_SLOT), "V1281")).toBe(false);
+    // Not failed, or not planned at all: nothing to retake.
+    expect(canRetake(failedIn0, "V1282")).toBe(false);
+    expect(canRetake(failedIn0, "V1283")).toBe(false);
+  });
+
+  test("adding it moves it to the active cuatrimestre and drops the failed mark", () => {
+    const next = addCourse(failedIn0, "V1281");
+    expect(next.terms).toEqual([["V1282"], ["V1281"], []]);
+    expect(next.failed).toBeUndefined();
+    expect(locate(next, "V1281")).toBe(1);
+  });
+
+  test("adding a course that is planned and did not fail still does nothing", () => {
+    expect(addCourse(failedIn0, "V1282")).toBe(failedIn0);
+    const sameTerm = goTo(failedIn0, 0);
+    expect(addCourse(sameTerm, "V1281")).toBe(sameTerm);
+  });
+
+  test("keeps the other failed courses marked", () => {
+    const both = toggleFailed(failedIn0, "V1282");
+    expect(addCourse(both, "V1281").failed).toEqual(["V1282"]);
   });
 });

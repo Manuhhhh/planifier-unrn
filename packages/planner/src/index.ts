@@ -15,6 +15,7 @@ export {
   stepSlot,
   termOf,
   toggleFailed,
+  canRetake,
   withFailed,
 } from "./plan.ts";
 export type { PlanProblem, Problem, StudyPlan } from "./plan.ts";

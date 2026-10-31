@@ -121,8 +121,23 @@ export function planProblems(plan: StudyPlan, curriculum: readonly Course[]): Pl
   return flagged;
 }
 
-/** Adds the course to the active slot; does nothing if it is already planned. */
+/** A failed course can be taken again from any cuatrimestre after the one it failed in. */
+export function canRetake(plan: StudyPlan, code: CourseCode): boolean {
+  const slot = locate(plan, code);
+  return (
+    plan.failed?.includes(code) === true &&
+    slot !== undefined &&
+    slot !== APPROVED_SLOT &&
+    plan.active > slot
+  );
+}
+
+/**
+ * Adds the course to the active slot; does nothing if it is already planned. A failed course is
+ * taken again: it leaves the cuatrimestre it failed in and loses its mark.
+ */
 export function addCourse(plan: StudyPlan, code: CourseCode): StudyPlan {
+  if (canRetake(plan, code)) return addCourse(removeCourse(plan, code), code);
   if (locate(plan, code) !== undefined) return plan;
   if (plan.active === APPROVED_SLOT) return { ...plan, approved: [...plan.approved, code] };
   return {

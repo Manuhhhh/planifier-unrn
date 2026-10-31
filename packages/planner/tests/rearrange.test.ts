@@ -1,6 +1,16 @@
 import { describe, expect, test } from "vite-plus/test";
 import { CURRICULUM } from "../src/curriculum.ts";
-import { emptyPlan, planProblems, problemsFor, removeCourse, toggleFailed } from "../src/plan.ts";
+import {
+  addCourse,
+  canRetake,
+  emptyPlan,
+  goTo,
+  locate,
+  planProblems,
+  problemsFor,
+  removeCourse,
+  toggleFailed,
+} from "../src/plan.ts";
 import type { StudyPlan } from "../src/plan.ts";
 import { rearrange } from "../src/rearrange.ts";
 
@@ -109,5 +119,33 @@ describe("rearrange", () => {
     const lonely = plan({ terms: [["V1281"], ["V1284"]] });
     const { plan: next } = rearrange(failing(lonely, "V1281"), CURRICULUM);
     expect(next.terms[1]).toEqual(["V1284"]);
+  });
+});
+
+describe("rearranging and retaking", () => {
+  const twoFailed = failing(
+    plan({ terms: [["V1281", "V1282"], ["V1283"], [], []] }),
+    "V1281",
+    "V1282",
+  );
+
+  test("puts a failed course where retaking it by hand would have been allowed", () => {
+    const { plan: next, moved } = rearrange(twoFailed, CURRICULUM);
+    for (const { code, from, to } of moved.filter((m) => twoFailed.failed!.includes(m.code))) {
+      expect(canRetake(goTo(twoFailed, to), code)).toBe(true);
+      expect(to).toBeGreaterThan(from);
+      const course = CURRICULUM.find((entry) => entry.code === code)!;
+      expect(problemsFor(course, next, to, CURRICULUM)).toEqual([]);
+    }
+  });
+
+  test("leaves a course that was retaken by hand where it was put", () => {
+    // V1281 is given in the 1st cuatrimestre: slot 2 is the first one that can take it again.
+    const retaken = addCourse(goTo(twoFailed, 2), "V1281");
+    expect(retaken.failed).toEqual(["V1282"]);
+    const { plan: next, moved } = rearrange(retaken, CURRICULUM);
+    expect(locate(next, "V1281")).toBe(2);
+    expect(moved.map((entry) => entry.code)).not.toContain("V1281");
+    expect(locate(next, "V1282")).toBeGreaterThan(0);
   });
 });
