@@ -1,7 +1,9 @@
 import type { Course, CourseCode, StudyPlan } from "planner";
 import { downloadBlob } from "../download.ts";
 import { AREAS, areaOf } from "./areas.ts";
-import { buildPlanGraph, escape, neighboursOf } from "./planGraph.ts";
+import { buildGraph } from "./buildGraph.ts";
+import type { GraphLayout } from "./buildGraph.ts";
+import { escape, neighboursOf } from "./planGraph.ts";
 import type { GraphRows } from "./planGraph.ts";
 
 const THEME_KEY = "planifier-unrn:view-theme";
@@ -24,6 +26,7 @@ button.theme svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-wid
 main{padding:16px 24px 24px}
 .bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-bottom:12px}
 .hint{margin:0 auto 0 0;font-size:12px;color:var(--muted)}
+.hint .touch{display:none}
 .rows{display:flex;overflow:hidden;border:1px solid var(--border);border-radius:8px}
 .rows button{padding:6px 12px;border:0;background:var(--panel);color:inherit;font:inherit;font-size:13px;cursor:pointer}
 .rows button:hover{background:var(--bg)}
@@ -46,7 +49,7 @@ main{padding:16px 24px 24px}
 .dim img.in{opacity:1}
 .fly{position:fixed;left:0;top:0;z-index:101;transform-origin:0 0;pointer-events:none}
 .fly .in{display:flex;gap:10px;height:100%;padding:6px 12px 6px 6px;border:1px solid var(--cardline);border-radius:8px;background:var(--card);color:var(--ink);box-shadow:0 10px 15px -3px rgba(0,0,0,.2)}
-.fly.root .in{border:2px solid var(--ink)}
+.fly.root .in{border:2.5px solid var(--accent);box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 22%,transparent)}
 .fly i{flex:none;width:4px;border-radius:2px}
 .fly b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;padding-top:4px;font-size:12px;line-height:15px;font-weight:600}
 .fly small{display:block;font-size:10px;color:var(--muted)}
@@ -58,7 +61,8 @@ main{padding:16px 24px 24px}
 #board svg.focusing [data-from]{opacity:.15}
 #board svg.focusing [data-from].rel{opacity:1;stroke:var(--ink);stroke-width:2.25}
 @media (prefers-reduced-motion:reduce){#board *{transition:none!important}}
-@media (max-width:640px){header,main{padding-left:16px;padding-right:16px}.brand span{display:none}}
+@media (max-width:767px){.rows{display:none}.hint{flex-basis:100%}.hint .mouse{display:none}.hint .touch{display:inline}.dim .top{padding:12px 16px}}
+@media (max-width:640px){header,main{padding-left:16px;padding-right:16px}.brand span{display:none}button.theme span{display:none}button.theme{padding:8px}}
 `;
 
 /** Brand mark: three course cards joined by arrows, as the app header draws it. */
@@ -87,6 +91,11 @@ const SCRIPT = `
   var board = document.getElementById("board");
   var toggle = document.getElementById("theme");
   var lineages = JSON.parse(document.getElementById("lineages").textContent);
+  var tallLineages = JSON.parse(document.getElementById("lineages-tall").textContent);
+  // A narrow screen gets the cuatrimestres stacked; wider ones have them side by side.
+  var narrow = matchMedia("(max-width: 767px)");
+  // A finger does not hover: a tap opens the chain without first fading the other cards.
+  var touch = matchMedia("(pointer: coarse)");
   var calm = matchMedia("(prefers-reduced-motion: reduce)");
   var MARGIN = 24;
   var HEADING_H = 72;
@@ -118,7 +127,7 @@ const SCRIPT = `
   function refresh() { focusOn(hovered); }
 
   function show(theme) {
-    var template = document.getElementById("svg-" + rows + "-" + theme);
+    var template = document.getElementById("svg-" + (narrow.matches ? "tall" : rows) + "-" + theme);
     board.replaceChildren(template.content.firstElementChild.cloneNode(true));
     board.querySelectorAll(".card").forEach(function (card) {
       card.setAttribute("tabindex", "0");
@@ -162,8 +171,7 @@ const SCRIPT = `
   var plural = function (count) { return count + (count === 1 ? " materia" : " materias"); };
 
   function openChain(code, clicked) {
-    // A chain that is drawn the same on one row and on several is stored once, under "split".
-    var data = (lineages[rows] && lineages[rows][code]) || lineages.split[code];
+    var data = (narrow.matches ? tallLineages : lineages)[code];
     if (!data || dialog) return;
     var theme = root.dataset.theme === "dark" ? "dark" : "light";
     var opener = document.activeElement;
@@ -277,13 +285,13 @@ const SCRIPT = `
 
   board.addEventListener("mouseover", function (event) {
     var card = cardAt(event);
-    hovered = card ? card.dataset.code : null;
+    hovered = card && !touch.matches ? card.dataset.code : null;
     refresh();
   });
   board.addEventListener("mouseleave", function () { hovered = null; refresh(); });
   board.addEventListener("focusin", function (event) {
     var card = cardAt(event);
-    hovered = card ? card.dataset.code : null;
+    hovered = card && !touch.matches ? card.dataset.code : null;
     refresh();
   });
   board.addEventListener("focusout", function () { hovered = null; refresh(); });
@@ -307,6 +315,7 @@ const SCRIPT = `
     show(theme);
   });
 
+  narrow.addEventListener("change", function () { if (!dialog) show(root.dataset.theme === "dark" ? "dark" : "light"); });
   setRows(rows);
 })();
 `;
@@ -345,11 +354,11 @@ interface Lineage {
   dark: string;
 }
 
-/** The chain of every course in the plan: itself plus the ones one step away, as the app draws it. */
+/** The chain of every course in the plan: itself plus the ones one step away, on a single board as the app draws it. */
 function lineagesOf(
   plan: StudyPlan,
   curriculum: readonly Course[],
-  rows: GraphRows,
+  layout: GraphLayout,
 ): Record<CourseCode, Lineage> {
   const byCode = new Map(curriculum.map((course) => [course.code, course]));
   const result: Record<CourseCode, Lineage> = {};
@@ -361,10 +370,12 @@ function lineagesOf(
       root: code,
       title: name,
       animate: true,
-      rows,
+      // Always one board, whichever layout the page shows.
+      rows: "single" as const,
+      layout,
     };
-    const light = buildPlanGraph(plan, curriculum, { ...options, theme: "light" });
-    const dark = buildPlanGraph(plan, curriculum, { ...options, theme: "dark" });
+    const light = buildGraph(plan, curriculum, { ...options, theme: "light" });
+    const dark = buildGraph(plan, curriculum, { ...options, theme: "dark" });
     // A course on several boards flies as one card: the first it is drawn on.
     const seen = new Set<CourseCode>();
     result[code] = {
@@ -394,22 +405,10 @@ function lineagesOf(
 }
 
 const MODES: readonly GraphRows[] = ["split", "single"];
+/** Every drawing the page can show: the wide one in both row layouts, and the stacked one. */
+const DRAWINGS = [...MODES, "tall"] as const;
 const THEMES = ["light", "dark"] as const;
 const ROW_LABELS: Record<GraphRows, string> = { split: "Varias filas", single: "Una fila" };
-
-/**
- * The chains for both row layouts. A chain whose drawing is the same on one row as on several
- * (usually the case, it holds few arrows) is stored once, under `split`.
- */
-function chainsOf(plan: StudyPlan, curriculum: readonly Course[]) {
-  const split = lineagesOf(plan, curriculum, "split");
-  const single = Object.fromEntries(
-    Object.entries(lineagesOf(plan, curriculum, "single")).filter(
-      ([code, chain]) => JSON.stringify(chain) !== JSON.stringify(split[code]),
-    ),
-  );
-  return { split, single };
-}
 
 /** JSON that is safe inside a <script> element: nothing in it can close the element or open a comment. */
 const scriptJson = (value: unknown) =>
@@ -430,14 +429,18 @@ export function buildInteractiveHtml(
   generated = new Date(),
 ): string {
   // Every combination is drawn up front: the page has no code to lay out a graph.
-  const drawn = MODES.flatMap((mode) =>
+  const drawn = DRAWINGS.flatMap((mode) =>
     THEMES.map((theme) => ({
       mode,
       theme,
-      graph: buildPlanGraph(plan, curriculum, { rows: mode, theme }),
+      graph:
+        mode === "tall"
+          ? buildGraph(plan, curriculum, { layout: "tall", theme })
+          : buildGraph(plan, curriculum, { rows: mode, theme }),
     })),
   );
   const width = drawn[0]!.graph.width;
+  const tallWidth = drawn.find((entry) => entry.mode === "tall")!.graph.width;
   const name = escape(plan.name);
   const date = generated.toLocaleDateString("es-AR");
   return [
@@ -448,7 +451,7 @@ export function buildInteractiveHtml(
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     `<title>${name} · Planificador UNRN</title>`,
     `<script>${PICK_THEME}</script>`,
-    `<style>${STYLES}#board{min-width:${width}px;max-width:${Math.round(width * 1.5)}px}</style>`,
+    `<style>${STYLES}@media (min-width:768px){#board{min-width:${width}px;max-width:${Math.round(width * 1.5)}px}}@media (max-width:767px){#board{max-width:${Math.round(tallWidth * 1.5)}px}}</style>`,
     "</head>",
     `<body data-rows="${rows}">`,
     "<header>",
@@ -457,7 +460,7 @@ export function buildInteractiveHtml(
     `<button type="button" class="theme" id="theme">${SUN}${MOON}<span class="to-light">Modo claro</span><span class="to-dark">Modo oscuro</span></button>`,
     "</header>",
     "<main>",
-    '<div class="bar"><p class="hint">Pasá el cursor sobre una materia para ver sus correlativas, o hacé click para verla aparte con las que tiene a un paso.</p>',
+    '<div class="bar"><p class="hint"><span class="mouse">Pasá el cursor sobre una materia para ver sus correlativas, o hacé click para verla aparte con las que tiene a un paso.</span><span class="touch">Tocá una materia para verla aparte con las que tiene a un paso.</span></p>',
     `<div class="rows" role="group" aria-label="Correlativas a distancia">${MODES.map(
       (mode) => `<button type="button" data-rows="${mode}">${ROW_LABELS[mode]}</button>`,
     ).join("")}</div></div>`,
@@ -467,7 +470,8 @@ export function buildInteractiveHtml(
     ...drawn.map(
       ({ mode, theme, graph }) => `<template id="svg-${mode}-${theme}">${graph.svg}</template>`,
     ),
-    `<script type="application/json" id="lineages">${scriptJson(chainsOf(plan, curriculum))}</script>`,
+    `<script type="application/json" id="lineages">${scriptJson(lineagesOf(plan, curriculum, "wide"))}</script>`,
+    `<script type="application/json" id="lineages-tall">${scriptJson(lineagesOf(plan, curriculum, "tall"))}</script>`,
     `<script>${SCRIPT}</script>`,
     "</body>",
     "</html>",

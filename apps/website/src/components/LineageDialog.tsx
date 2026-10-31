@@ -4,8 +4,10 @@ import { CURRICULUM } from "planner";
 import type { CourseCode, StudyPlan } from "planner";
 import { AREAS, areaOf } from "../graph/areas.ts";
 import { svgDataUrl } from "../graph/exportImage.ts";
-import { buildPlanGraph, neighboursOf } from "../graph/planGraph.ts";
-import type { CardBox, GraphRows, GraphTheme } from "../graph/planGraph.ts";
+import { buildGraph } from "../graph/buildGraph.ts";
+import type { GraphLayout } from "../graph/buildGraph.ts";
+import { neighboursOf } from "../graph/planGraph.ts";
+import type { CardBox, GraphTheme } from "../graph/planGraph.ts";
 import { Close } from "./icons.tsx";
 
 /** Where a card is on screen: top-left corner and how much it is scaled from its drawn size. */
@@ -25,21 +27,22 @@ const HEADING_H = 72;
 /**
  * Takes over the screen to show one course's correlatives: everything else fades, the cards of the
  * courses one step away (the ones it needs and the ones that need it) fly out of the plan's
- * graph into a graph of their own, centred, whose columns and arrows then build up.
+ * graph into a graph of their own, centred and on a single board, whose columns and arrows then
+ * build up. The clicked course is highlighted.
  * Closing sends them back. `from` is where each card sits in the plan's graph on screen.
  */
 export function LineageDialog({
   plan,
   code,
-  rows,
   theme,
+  layout,
   from,
   onClose,
 }: {
   plan: StudyPlan;
   code: CourseCode;
-  rows: GraphRows;
   theme: GraphTheme;
+  layout: GraphLayout;
   from: (code: CourseCode) => Place | undefined;
   onClose: () => void;
 }) {
@@ -54,16 +57,18 @@ export function LineageDialog({
     const only = new Set([code, ...lineage.needs, ...lineage.unlocks]);
     // The "Animaciones" preference lives on <html>; inside an <img> the SVG can't see it.
     const animate = document.documentElement.dataset.animations !== "off";
-    const graph = buildPlanGraph(plan, CURRICULUM, {
+    const graph = buildGraph(plan, CURRICULUM, {
+      layout,
       only,
       root: code,
       title: name,
       animate,
-      rows,
+      // However the plan's graph is laid out, the chain is always drawn on one board.
+      rows: "single",
       theme,
     });
     return { lineage, graph };
-  }, [plan, code, name, rows, theme]);
+  }, [plan, code, name, theme, layout]);
 
   // Fit the graph in the window below the heading, never enlarged past its drawn size.
   const [fit] = useState(() => {
@@ -213,7 +218,7 @@ function FlyingCard({
       <div
         className={`flex h-full gap-2.5 rounded-lg bg-white py-1.5 pl-1.5 pr-3 text-stone-900 shadow-lg dark:bg-[#2e2926] dark:text-stone-100 ${
           root
-            ? "border-2 border-stone-900 dark:border-stone-100"
+            ? "border-red-700 shadow-[0_0_0_5px_rgba(185,28,28,0.22)] border-[2.5px] dark:border-red-400 dark:shadow-[0_0_0_5px_rgba(248,113,113,0.22)]"
             : "border border-stone-200 dark:border-stone-700"
         }`}
       >

@@ -67,27 +67,28 @@ const TITLE_H = 76;
 /** Heading above each board, and the free space between the two boards. */
 const SECTION_H = 28;
 const SECTION_GAP = 40;
-const CARD_H = 56;
-const CARD_GAP = 8;
+export const CARD_H = 56;
+export const CARD_GAP = 8;
 const CARD_INSET = 8;
 const CARD_W = COLUMN_W - 2 * CARD_INSET;
-const LEGEND_ROW_H = 20;
-const MIN_WIDTH = 420;
+export const LEGEND_ROW_H = 20;
+/** Wide enough for the section heading and its caption, even when there is a single column. */
+const MIN_WIDTH = 560;
 /** Free space kept between the board and its first outer lane, and between lanes. */
 const LANE_MARGIN = 22;
 const LANE_STEP = 12;
 /** Past this, distant arrows move on to another board. */
 const CROWDING = { lanes: 3, ends: 3 };
 /** Characters of the course name that fit on one line of a card. */
-const LINE_CHARS = 30;
+export const LINE_CHARS = 30;
 /** Rough width of one character of the 11px key text, to lay the area swatches in rows. */
-const KEY_CHAR_W = 5.6;
-const FONT = "font-family=\"Poppins, 'Segoe UI', Helvetica, Arial, sans-serif\"";
+export const KEY_CHAR_W = 5.6;
+export const FONT = "font-family=\"Poppins, 'Segoe UI', Helvetica, Arial, sans-serif\"";
 
 export type GraphTheme = "light" | "dark";
 
 /** Colours of the drawing. The layout is the same in both themes; only these change. */
-const PALETTES = {
+export const PALETTES = {
   light: {
     page: "#ffffff",
     column: "#fafaf9",
@@ -96,6 +97,7 @@ const PALETTES = {
     muted: "#78716c",
     line: "#e7e5e4",
     amber: "#b45309",
+    accent: "#b91c1c",
     edge: "#78716c",
     area: "color",
   },
@@ -107,23 +109,24 @@ const PALETTES = {
     muted: "#a8a29e",
     line: "#44403c",
     amber: "#fbbf24",
+    accent: "#f87171",
     edge: "#a8a29e",
     area: "dark",
   },
 } as const satisfies Record<GraphTheme, { area: "color" | "dark" } & Record<string, string>>;
-const DASH = "5 4";
+export const DASH = "5 4";
 
 /** Seconds between one column and the next as the drawing builds up, and when each part starts. */
-const STAGGER = 0.12;
-const CARD_DELAY = 0.1;
-const EDGE_DELAY = 0.35;
+export const STAGGER = 0.12;
+export const CARD_DELAY = 0.1;
+export const EDGE_DELAY = 0.35;
 
 /**
  * Styles of a drawing that builds up: columns fade in, cards rise into place, then solid arrows
  * are traced and dashed ones fade in. Each part's `animation-delay` sets the order. Nothing
  * moves for someone who asked for reduced motion.
  */
-const BUILD_UP =
+export const BUILD_UP =
   "<style>" +
   "@keyframes fade{from{opacity:0}to{opacity:1}}" +
   "@keyframes rise{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}" +
@@ -157,7 +160,7 @@ export function wrapName(name: string, lineChars = LINE_CHARS): string[] {
   return [lines[0]!, `${rest.slice(0, lineChars - 1).trimEnd()}…`];
 }
 
-const text = (
+export const text = (
   x: number,
   y: number,
   content: string,
@@ -167,7 +170,7 @@ const text = (
 ): string =>
   `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}" ${FONT} ${extra}>${escape(content)}</text>`;
 
-const plural = (count: number) => `${count} ${count === 1 ? "materia" : "materias"}`;
+export const plural = (count: number) => `${count} ${count === 1 ? "materia" : "materias"}`;
 
 /** Curve between cuatrimestres that follow each other. */
 function directPath(x1: number, y1: number, x2: number, y2: number): string {
@@ -197,10 +200,10 @@ function outerPath(
   ].join(" ");
 }
 
-type KindEdge = Edge & { kind: "regular" | "approved" };
+export type KindEdge = Edge & { kind: "regular" | "approved" };
 
 /** Columns of the drawing (the approved courses, then each cuatrimestre) and their courses. */
-function columnsOf(plan: StudyPlan, only?: ReadonlySet<CourseCode>) {
+export function columnsOf(plan: StudyPlan, only?: ReadonlySet<CourseCode>) {
   const coursesIn = (slot: number) =>
     slotCourses(plan, slot).filter((code) => only === undefined || only.has(code));
   const slots = [...(plan.approved.length > 0 ? [APPROVED_SLOT] : []), ...plan.terms.keys()].filter(
@@ -212,7 +215,7 @@ function columnsOf(plan: StudyPlan, only?: ReadonlySet<CourseCode>) {
 }
 
 /** Arrows from each course to the ones it needs, only those that go forward in time. */
-function forwardEdges(
+export function forwardEdges(
   columnOf: ReadonlyMap<CourseCode, number>,
   byCode: ReadonlyMap<CourseCode, Course>,
 ): KindEdge[] {
@@ -470,13 +473,21 @@ export function buildPlanGraph(
         const state =
           code === focus ? " focused" : code === root ? " root" : dimmed ? " dimmed" : "";
         const stroke =
-          code === focus || code === root
-            ? `stroke="${c.ink}" stroke-width="2"`
-            : `stroke="${warning ? c.amber : c.line}"`;
+          code === root
+            ? `stroke="${c.accent}" stroke-width="2.5"`
+            : code === focus
+              ? `stroke="${c.ink}" stroke-width="2"`
+              : `stroke="${warning ? c.amber : c.line}"`;
 
         boxes.push({ code, name, x: x + CARD_INSET, y, width: CARD_W, height: CARD_H });
         cards.push(
           `<g class="card${state}" data-code="${code}"${dimmed ? ' opacity="0.3"' : ""}${delay(CARD_DELAY + column * STAGGER)}>`,
+          // The clicked course gets a soft halo so it reads at a glance among its neighbours.
+          ...(code === root
+            ? [
+                `<rect x="${x + CARD_INSET - 5}" y="${y - 5}" width="${CARD_W + 10}" height="${CARD_H + 10}" rx="12" fill="${c.accent}" opacity="0.22"/>`,
+              ]
+            : []),
           `<rect x="${x + CARD_INSET}" y="${y}" width="${CARD_W}" height="${CARD_H}" rx="8" fill="${c.card}" ${stroke}/>`,
           `<rect x="${x + CARD_INSET}" y="${y + 6}" width="4" height="${CARD_H - 12}" rx="2" fill="${warning ? c.amber : AREAS[areaOf(code)][c.area]}"/>`,
           ...lines.map((line, index) =>

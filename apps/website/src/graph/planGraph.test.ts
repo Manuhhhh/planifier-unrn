@@ -228,6 +228,9 @@ test("drawing only some courses leaves out the rest and the columns left empty",
   expect(svg).toContain(`>${withCursada.name}</text>`);
   // The root stands out without fading anything else.
   expect(svg).toContain('class="card root"');
+  // ...and carries a halo and an accent border, which no other card has.
+  expect(svg).toContain('stroke="#b91c1c" stroke-width="2.5"');
+  expect(svg).toContain('fill="#b91c1c" opacity="0.22"');
   expect(svg).not.toContain('opacity="0.3"');
 });
 

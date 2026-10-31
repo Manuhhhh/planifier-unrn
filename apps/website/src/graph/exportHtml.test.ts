@@ -37,13 +37,13 @@ test("escapes the plan name everywhere it is shown", () => {
   expect(page).toContain("&lt;/title&gt;&lt;script&gt;alert(1)");
 });
 
-const lineages = (page: string) =>
+const lineages = (page: string, id = "lineages") =>
   JSON.parse(
-    page.match(/<script type="application\/json" id="lineages">([\s\S]*?)<\/script>/)![1]!,
+    page.match(new RegExp(`<script type="application/json" id="${id}">([\\s\\S]*?)</script>`))![1]!,
   );
 
 test("carries the chain of every planned course, with its cards and both drawings", () => {
-  const chains = lineages(html()).split;
+  const chains = lineages(html());
   expect(Object.keys(chains).sort()).toEqual(["V1281", "V1283"]);
   const chain = chains.V1283;
   expect(chain).toMatchObject({ needs: 1, unlocks: 0 });
@@ -55,7 +55,7 @@ test("carries the chain of every planned course, with its cards and both drawing
 
 test("keeps the chain data from closing its script element", () => {
   const page = html({ ...withCourses, name: "</script><!--" });
-  expect(page.match(/<\/script>/g)).toHaveLength(3);
+  expect(page.match(/<\/script>/g)).toHaveLength(4);
   expect(() => lineages(page)).not.toThrow();
 });
 
@@ -65,8 +65,32 @@ test("starts on the layout the app was showing", () => {
   );
 });
 
-test("stores a chain once when both layouts draw it the same", () => {
-  const { split, single } = lineages(html());
-  expect(Object.keys(split).length).toBeGreaterThan(0);
-  expect(Object.keys(single).every((code) => split[code].light !== single[code].light)).toBe(true);
+test("draws every chain on one board, whichever layout the page starts on", () => {
+  const chains = lineages(html());
+  expect(lineages(buildInteractiveHtml(withCourses, CURRICULUM, "single"))).toEqual(chains);
+  expect(chains.V1283.height).toBeLessThan(500);
+});
+
+test("carries the stacked drawing for phones: every course's chain and the whole plan", () => {
+  const page = html();
+  expect(page).toContain('<template id="svg-tall-light">');
+  expect(page).toContain('<template id="svg-tall-dark">');
+  const tall = lineages(page, "lineages-tall");
+  expect(Object.keys(tall).sort()).toEqual(["V1281", "V1283"]);
+  // Stacked, so narrower than the wide chain of the same course.
+  expect(tall.V1283.width).toBeLessThan(lineages(page).V1283.width);
+  expect(tall.V1283.cards).toHaveLength(2);
+});
+
+test("picks the stacked drawing on a narrow screen, and hides the rows switch there", () => {
+  const page = html();
+  expect(page).toContain('matchMedia("(max-width: 767px)")');
+  expect(page).toContain("@media (max-width:767px){.rows{display:none}");
+  expect(page).toContain("@media (min-width:768px){#board{min-width:");
+});
+
+test("a touch screen does not fade the other cards on tap", () => {
+  const page = html();
+  expect(page).toContain('matchMedia("(pointer: coarse)")');
+  expect(page).toContain("card && !touch.matches ? card.dataset.code : null");
 });

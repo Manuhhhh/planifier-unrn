@@ -5,9 +5,11 @@ import type { CourseCode, StudyPlan } from "planner";
 import { exportInteractive } from "../graph/exportHtml.ts";
 import { exportGraph, svgDataUrl } from "../graph/exportImage.ts";
 import type { ImageFormat } from "../graph/exportImage.ts";
-import { buildPlanGraph } from "../graph/planGraph.ts";
+import { buildGraph } from "../graph/buildGraph.ts";
 import type { CardBox, GraphRows } from "../graph/planGraph.ts";
+import { useCoarsePointer } from "../hooks/useCoarsePointer.ts";
 import { useDarkMode } from "../hooks/useDarkMode.ts";
+import { useNarrowScreen } from "../hooks/useNarrowScreen.ts";
 import { planSlug } from "../planFile.ts";
 import { Download } from "./icons.tsx";
 import { LineageDialog } from "./LineageDialog.tsx";
@@ -32,15 +34,21 @@ const MAX_GROWTH = 1.5;
 export function PlanGraph({ plan }: { plan: StudyPlan }) {
   const [rows, setRows] = useState<GraphRows>("split");
   const theme = useDarkMode() ? "dark" : "light";
+  // A narrow screen gets the cuatrimestres stacked, which has no rows to choose.
+  const layout = useNarrowScreen() ? "tall" : "wide";
+  // A finger does not hover: a tap opens the chain, it must not also fade the other cards first.
+  const touch = useCoarsePointer();
   const graph = useMemo(
-    () => buildPlanGraph(plan, CURRICULUM, { rows, theme }),
-    [plan, rows, theme],
+    () => buildGraph(plan, CURRICULUM, { rows, theme, layout }),
+    [plan, rows, theme, layout],
   );
   const [focus, setFocus] = useState<CourseCode>();
   const focused = useMemo(
     () =>
-      focus === undefined ? undefined : buildPlanGraph(plan, CURRICULUM, { focus, rows, theme }),
-    [plan, focus, rows, theme],
+      focus === undefined
+        ? undefined
+        : buildGraph(plan, CURRICULUM, { focus, rows, theme, layout }),
+    [plan, focus, rows, theme, layout],
   );
   const board = useRef<HTMLDivElement>(null);
   // The course whose chain is open, and where every card was on screen when it was clicked.
@@ -96,7 +104,7 @@ export function PlanGraph({ plan }: { plan: StudyPlan }) {
         <div
           role="group"
           aria-label="Correlativas a distancia"
-          className="flex overflow-hidden rounded-md border border-stone-200 dark:border-stone-700"
+          className="flex overflow-hidden rounded-md border border-stone-200 max-md:hidden dark:border-stone-700"
         >
           {ROWS.map(({ value, label }) => (
             <button
@@ -104,7 +112,7 @@ export function PlanGraph({ plan }: { plan: StudyPlan }) {
               type="button"
               aria-pressed={rows === value}
               onClick={() => setRows(value)}
-              className={`cursor-pointer px-3 py-1.5 text-sm transition-colors ${
+              className={`cursor-pointer px-3 py-1.5 text-sm transition-colors max-md:flex-1 ${
                 rows === value
                   ? "bg-red-100 font-semibold text-red-800 dark:bg-red-950 dark:text-red-200"
                   : "bg-white hover:bg-stone-100 dark:bg-stone-800 dark:hover:bg-stone-700"
@@ -114,24 +122,29 @@ export function PlanGraph({ plan }: { plan: StudyPlan }) {
             </button>
           ))}
         </div>
-        <span className="text-sm text-stone-500 dark:text-stone-400">Exportar como</span>
-        {FORMATS.map(({ value, label }) => (
+        {/* A phone lays the export buttons out as a grid under their label. */}
+        <div className="grid w-full grid-cols-3 items-center gap-2 md:contents">
+          <span className="col-span-3 text-sm text-stone-500 dark:text-stone-400">
+            Exportar como
+          </span>
+          {FORMATS.map(({ value, label }) => (
+            <Button
+              key={value}
+              disabled={busy !== undefined}
+              onClick={() => save(value)}
+              className="flex items-center justify-center gap-1.5"
+            >
+              <Download /> {label}
+            </Button>
+          ))}
           <Button
-            key={value}
-            disabled={busy !== undefined}
-            onClick={() => save(value)}
-            className="flex items-center gap-1.5"
+            onClick={saveInteractive}
+            title="Una página web con el gráfico, de solo lectura, con modo claro y oscuro"
+            className="col-span-3 flex items-center justify-center gap-1.5"
           >
-            <Download /> {label}
+            <Download /> HTML interactivo
           </Button>
-        ))}
-        <Button
-          onClick={saveInteractive}
-          title="Una página web con el gráfico, de solo lectura, con modo claro y oscuro"
-          className="flex items-center gap-1.5"
-        >
-          <Download /> HTML interactivo
-        </Button>
+        </div>
       </div>
       {error && (
         <p role="alert" className={`mb-3 text-sm ${problemClass}`}>
@@ -144,7 +157,11 @@ export function PlanGraph({ plan }: { plan: StudyPlan }) {
         <div
           ref={board}
           className="relative mx-auto"
-          style={{ width: "100%", minWidth: graph.width, maxWidth: graph.width * MAX_GROWTH }}
+          style={
+            layout === "tall"
+              ? { width: "100%", maxWidth: graph.width * MAX_GROWTH }
+              : { width: "100%", minWidth: graph.width, maxWidth: graph.width * MAX_GROWTH }
+          }
           onMouseLeave={() => setFocus(undefined)}
         >
           <img
@@ -170,8 +187,8 @@ export function PlanGraph({ plan }: { plan: StudyPlan }) {
               type="button"
               aria-label={`Ver las correlativas directas de ${card.name}`}
               aria-haspopup="dialog"
-              onMouseEnter={() => setFocus(card.code)}
-              onFocus={() => setFocus(card.code)}
+              onMouseEnter={() => !touch && setFocus(card.code)}
+              onFocus={() => !touch && setFocus(card.code)}
               onBlur={() => setFocus(undefined)}
               onClick={() => open(card)}
               className="absolute cursor-pointer rounded-lg outline-offset-2 focus-visible:outline-2 focus-visible:outline-stone-900"
@@ -186,16 +203,21 @@ export function PlanGraph({ plan }: { plan: StudyPlan }) {
         </div>
       </div>
       <p className="mt-2 text-xs text-stone-500 dark:text-stone-400">
-        Pasá el cursor sobre una materia para ver sus correlativas, o hacé click para verla aparte
-        con las que tiene a un paso.
+        <span className="max-md:hidden">
+          Pasá el cursor sobre una materia para ver sus correlativas, o hacé click para verla aparte
+          con las que tiene a un paso.
+        </span>
+        <span className="md:hidden">
+          Tocá una materia para verla aparte con las que tiene a un paso.
+        </span>
       </p>
       <AnimatePresence>
         {opened && (
           <LineageDialog
             plan={plan}
             code={opened.code}
-            rows={rows}
             theme={theme}
+            layout={layout}
             from={(code) => opened.places.get(code)}
             onClose={close}
           />
