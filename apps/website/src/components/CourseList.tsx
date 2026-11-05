@@ -127,6 +127,7 @@ export function CourseList({
     <div className={touch ? SELECTION_SHEET_ROOM : ""}>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input
+          data-guide="course-search"
           type="search"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
@@ -134,9 +135,11 @@ export function CourseList({
           aria-label="Buscar materias"
           className={`${fieldClass} min-w-56 flex-1`}
         />
-        <Checkbox checked={onlyEnabled} onChange={onOnlyEnabledChange}>
-          Solo habilitadas
-        </Checkbox>
+        <div data-guide="only-enabled">
+          <Checkbox checked={onlyEnabled} onChange={onOnlyEnabledChange}>
+            Solo habilitadas
+          </Checkbox>
+        </div>
       </div>
 
       <h2 className="mb-3 text-lg font-semibold">
@@ -161,7 +164,7 @@ export function CourseList({
           : "Mantené presionado y arrastrá sobre varias materias para agregarlas juntas."}
       </p>
 
-      <motion.div layout className="flex select-none flex-col gap-2">
+      <motion.div data-guide="course-list" layout className="flex select-none flex-col gap-2">
         <AnimatePresence mode="popLayout" initial={false}>
           {rows.map((row, index) =>
             row.kind === "year" ? (

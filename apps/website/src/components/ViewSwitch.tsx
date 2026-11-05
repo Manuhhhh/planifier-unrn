@@ -11,6 +11,7 @@ const OPTIONS: { value: View; label: string; Icon: typeof Pencil }[] = [
 export function ViewSwitch({ view, onChange }: { view: View; onChange: (view: View) => void }) {
   return (
     <div
+      data-guide="view-switch"
       role="group"
       aria-label="Modo de visualización"
       className="flex overflow-hidden rounded-md border border-stone-200 dark:border-stone-700"

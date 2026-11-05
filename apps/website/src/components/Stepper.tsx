@@ -37,6 +37,7 @@ export function Stepper({
   return (
     <div
       data-testid="stepper"
+      data-guide="stepper"
       className="flex flex-wrap items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 shadow-sm dark:border-stone-700 dark:bg-stone-800"
     >
       {/* On a phone the way through the cuatrimestres floats at the bottom, within thumb's reach. */}

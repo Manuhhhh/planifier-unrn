@@ -27,6 +27,7 @@ export function PreferencesMenu({ preferences, onChange }: Props) {
   return (
     <div ref={root} className="relative shrink-0">
       <Button
+        data-guide="preferences-button"
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={panelId}

@@ -9,6 +9,7 @@ import type { Pane } from "./components/PaneSwitch.tsx";
 import { PlanTabs } from "./components/PlanTabs.tsx";
 import { PlanToolbar } from "./components/PlanToolbar.tsx";
 import { PreferencesMenu } from "./components/PreferencesMenu.tsx";
+import { HelpGuide } from "./components/HelpGuide.tsx";
 import { Header } from "./components/Header.tsx";
 import { HoverProvider } from "./components/RelationHover.tsx";
 import { Stepper } from "./components/Stepper.tsx";
@@ -42,7 +43,10 @@ export function App() {
         <HoverProvider plan={plan}>
           <div className={shellClass}>
             <Header>
-              <PreferencesMenu preferences={preferences} onChange={setPreferences} />
+              <div className="flex items-center gap-2">
+                <HelpGuide />
+                <PreferencesMenu preferences={preferences} onChange={setPreferences} />
+              </div>
             </Header>
             <div className={`${pageClass} ${view === "edit" ? floatingBarRoom : ""}`}>
               <Reveal

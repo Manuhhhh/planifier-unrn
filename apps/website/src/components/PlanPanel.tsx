@@ -50,7 +50,7 @@ export function PlanPanel({ plan, onChange }: Props) {
   };
 
   return (
-    <div>
+    <div data-guide="plan-panel">
       {failed > 0 && (
         // Zero-height sticky row: the button floats at the top right of the panel while its content scrolls.
         <div className="pointer-events-none sticky top-2 z-10 flex h-0 items-start justify-end">
