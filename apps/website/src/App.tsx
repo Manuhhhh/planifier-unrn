@@ -11,6 +11,7 @@ import { PlanToolbar } from "./components/PlanToolbar.tsx";
 import { PreferencesMenu } from "./components/PreferencesMenu.tsx";
 import { HelpGuide } from "./components/HelpGuide.tsx";
 import { Header } from "./components/Header.tsx";
+import { MobileNotice } from "./components/MobileNotice.tsx";
 import { HoverProvider } from "./components/RelationHover.tsx";
 import { Stepper } from "./components/Stepper.tsx";
 import { ViewSwitch } from "./components/ViewSwitch.tsx";
@@ -48,6 +49,7 @@ export function App() {
                 <PreferencesMenu preferences={preferences} onChange={setPreferences} />
               </div>
             </Header>
+            <MobileNotice />
             <div className={`${pageClass} ${view === "edit" ? floatingBarRoom : ""}`}>
               <Reveal
                 delay={0.08}
