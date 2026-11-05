@@ -55,13 +55,14 @@ test("carries the chain of every planned course, with its cards and both drawing
 
 test("keeps the chain data from closing its script element", () => {
   const page = html({ ...withCourses, name: "</script><!--" });
-  expect(page.match(/<\/script>/g)).toHaveLength(4);
+  // Theme picker, three chain lists (wide, stacked, map) and the page script.
+  expect(page.match(/<\/script>/g)).toHaveLength(5);
   expect(() => lineages(page)).not.toThrow();
 });
 
 test("starts on the layout the app was showing", () => {
   expect(buildInteractiveHtml(withCourses, CURRICULUM, "single")).toContain(
-    '<body data-rows="single">',
+    '<body data-rows="single" data-style="cards">',
   );
 });
 
@@ -93,4 +94,33 @@ test("a touch screen does not fade the other cards on tap", () => {
   const page = html();
   expect(page).toContain('matchMedia("(pointer: coarse)")');
   expect(page).toContain("card && !touch.matches ? card.dataset.code : null");
+});
+
+test("carries the map drawing in both themes, with a switch between cards and map", () => {
+  const page = html();
+  expect(page).toContain('<template id="svg-map-light">');
+  expect(page).toContain('<template id="svg-map-dark">');
+  expect(page).toContain("<ellipse");
+  expect(page).toContain('data-style="cards"');
+  expect(page).toContain('data-style="map"');
+});
+
+test("starts on the style the app was showing", () => {
+  expect(buildInteractiveHtml(withCourses, CURRICULUM, "split", "map")).toContain(
+    '<body data-rows="split" data-style="map">',
+  );
+  expect(html()).toContain('data-style="cards">');
+});
+
+test("carries the map chain of every planned course, flying as ovals with their colour", () => {
+  const page = html();
+  const chains = lineages(page, "lineages-map") as Record<
+    string,
+    { oval: boolean; light: string; cards: { code: string; color: string }[] }
+  >;
+  expect(Object.keys(chains).toSorted()).toEqual(["V1281", "V1283"]);
+  expect(chains.V1283!.oval).toBe(true);
+  expect(chains.V1283!.light).toContain("<ellipse");
+  expect(chains.V1283!.cards.map((card) => card.code).toSorted()).toEqual(["V1281", "V1283"]);
+  for (const card of chains.V1283!.cards) expect(card.color).toMatch(/^#[0-9a-f]{6}$/);
 });

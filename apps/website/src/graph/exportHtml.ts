@@ -2,7 +2,7 @@ import type { Course, CourseCode, StudyPlan } from "planner";
 import { downloadBlob } from "../download.ts";
 import { AREAS, areaOf } from "./areas.ts";
 import { buildGraph } from "./buildGraph.ts";
-import type { GraphLayout } from "./buildGraph.ts";
+import type { GraphLayout, GraphStyle } from "./buildGraph.ts";
 import { escape, neighboursOf } from "./planGraph.ts";
 import type { GraphRows } from "./planGraph.ts";
 
@@ -27,11 +27,11 @@ main{padding:16px 24px 24px}
 .bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-bottom:12px}
 .hint{margin:0 auto 0 0;font-size:12px;color:var(--muted)}
 .hint .touch{display:none}
-.rows{display:flex;overflow:hidden;border:1px solid var(--border);border-radius:8px}
-.rows button{padding:6px 12px;border:0;background:var(--panel);color:inherit;font:inherit;font-size:13px;cursor:pointer}
-.rows button:hover{background:var(--bg)}
-.rows button[aria-pressed=true]{background:#fee2e2;color:#991b1b;font-weight:600}
-:root[data-theme=dark] .rows button[aria-pressed=true]{background:#450a0a;color:#fecaca}
+.rows,.styles{display:flex;overflow:hidden;border:1px solid var(--border);border-radius:8px}
+.rows button,.styles button{padding:6px 12px;border:0;background:var(--panel);color:inherit;font:inherit;font-size:13px;cursor:pointer}
+.rows button:hover,.styles button:hover{background:var(--bg)}
+.rows button[aria-pressed=true],.styles button[aria-pressed=true]{background:#fee2e2;color:#991b1b;font-weight:600}
+:root[data-theme=dark] .rows button[aria-pressed=true],:root[data-theme=dark] .styles button[aria-pressed=true]{background:#450a0a;color:#fecaca}
 .frame{overflow:auto;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
 #board{margin:0 auto}
 #board svg{display:block;width:100%;height:auto}
@@ -53,23 +53,24 @@ main{padding:16px 24px 24px}
 .fly i{flex:none;width:4px;border-radius:2px}
 .fly b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;padding-top:4px;font-size:12px;line-height:15px;font-weight:600}
 .fly small{display:block;font-size:10px;color:var(--muted)}
+.fly .in.oval{align-items:center;justify-content:center;padding:0;border:1.5px solid;border-radius:50%;font-size:11px;font-weight:600}
+.fly.root .in.oval{border-width:3px}
 #board [data-from]{transition:opacity .15s,stroke-width .15s}
-#board .card:focus-visible>rect:first-child{stroke:var(--accent);stroke-width:2}
+#board .card:focus-visible>rect:first-child,#board .card:focus-visible>ellipse{stroke:var(--accent);stroke-width:2}
 #board svg.focusing .card{opacity:.3}
 #board svg.focusing .card.rel{opacity:1}
 #board svg.focusing .card.pick>rect:first-child{stroke:var(--ink);stroke-width:2}
+#board svg.focusing .card.pick>ellipse{stroke-width:3}
 #board svg.focusing [data-from]{opacity:.15}
-#board svg.focusing [data-from].rel{opacity:1;stroke:var(--ink);stroke-width:2.25}
+#board svg.focusing [data-from].rel{opacity:1;stroke-width:2.25}
 @media (prefers-reduced-motion:reduce){#board *{transition:none!important}}
 @media (max-width:767px){.rows{display:none}.hint{flex-basis:100%}.hint .mouse{display:none}.hint .touch{display:inline}.dim .top{padding:12px 16px}}
 @media (max-width:640px){header,main{padding-left:16px;padding-right:16px}.brand span{display:none}button.theme span{display:none}button.theme{padding:8px}}
 `;
 
-/** Brand mark: three course cards joined by arrows, as the app header draws it. */
+/** Brand mark: the plan as a route to a starred goal, as the app header draws it. */
 const MARK =
-  '<svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#b91c1c"/>' +
-  '<g fill="#fff"><rect x="6" y="7" width="8" height="5" rx="1.5"/><rect x="6" y="20" width="8" height="5" rx="1.5"/><rect x="18" y="13.5" width="8" height="5" rx="1.5"/></g>' +
-  '<path d="M14 9.5C16 9.5 16 16 18 16M14 22.5C16 22.5 16 16 18 16" fill="none" stroke="#fff" stroke-width="1.5"/></svg>';
+  '<svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="mark-gradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ef4444"/><stop offset="1" stop-color="#991b1b"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#mark-gradient)"/><path d="M8 23.5C12.5 23.5 13 19.5 16.5 19.5S23.5 15 23.5 8.5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><circle cx="8" cy="23.5" r="2.7" fill="#dc2626" stroke="#fff" stroke-width="2"/><circle cx="16.5" cy="19.5" r="2.7" fill="#c42727" stroke="#fff" stroke-width="2"/><circle cx="23.5" cy="8.5" r="4" fill="#fff"/><path d="M23.5 6.3l.65 1.55 1.55.65-1.55.65-.65 1.55-.65-1.55-1.55-.65 1.55-.65z" fill="#b91c1c"/></svg>';
 
 const ICON = (name: string, path: string) =>
   `<svg class="${name}" viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
@@ -92,6 +93,7 @@ const SCRIPT = `
   var toggle = document.getElementById("theme");
   var lineages = JSON.parse(document.getElementById("lineages").textContent);
   var tallLineages = JSON.parse(document.getElementById("lineages-tall").textContent);
+  var mapLineages = JSON.parse(document.getElementById("lineages-map").textContent);
   // A narrow screen gets the cuatrimestres stacked; wider ones have them side by side.
   var narrow = matchMedia("(max-width: 767px)");
   // A finger does not hover: a tap opens the chain without first fading the other cards.
@@ -100,6 +102,8 @@ const SCRIPT = `
   var MARGIN = 24;
   var HEADING_H = 72;
   var rows = document.body.dataset.rows;
+  // "cards" or "map"; the map has one drawing only, which a phone scrolls sideways.
+  var style = document.body.dataset.style;
   var hovered = null;
   var dialog = null;
 
@@ -127,7 +131,8 @@ const SCRIPT = `
   function refresh() { focusOn(hovered); }
 
   function show(theme) {
-    var template = document.getElementById("svg-" + (narrow.matches ? "tall" : rows) + "-" + theme);
+    var mode = style === "map" ? "map" : narrow.matches ? "tall" : rows;
+    var template = document.getElementById("svg-" + mode + "-" + theme);
     board.replaceChildren(template.content.firstElementChild.cloneNode(true));
     board.querySelectorAll(".card").forEach(function (card) {
       card.setAttribute("tabindex", "0");
@@ -144,6 +149,15 @@ const SCRIPT = `
     rows = next;
     document.querySelectorAll(".rows button").forEach(function (button) {
       button.setAttribute("aria-pressed", String(button.dataset.rows === rows));
+    });
+    show(root.dataset.theme === "dark" ? "dark" : "light");
+  }
+
+  function setStyle(next) {
+    style = next;
+    document.body.dataset.style = style;
+    document.querySelectorAll(".styles button").forEach(function (button) {
+      button.setAttribute("aria-pressed", String(button.dataset.style === style));
     });
     show(root.dataset.theme === "dark" ? "dark" : "light");
   }
@@ -171,7 +185,7 @@ const SCRIPT = `
   var plural = function (count) { return count + (count === 1 ? " materia" : " materias"); };
 
   function openChain(code, clicked) {
-    var data = (narrow.matches ? tallLineages : lineages)[code];
+    var data = (style === "map" ? mapLineages : narrow.matches ? tallLineages : lineages)[code];
     if (!data || dialog) return;
     var theme = root.dataset.theme === "dark" ? "dark" : "light";
     var opener = document.activeElement;
@@ -221,6 +235,15 @@ const SCRIPT = `
       node.style.height = card.height + "px";
       var inner = document.createElement("div");
       inner.className = "in";
+      if (data.oval) {
+        // A map oval: its code in a ring of its colour.
+        inner.className = "in oval";
+        inner.style.borderColor = theme === "dark" ? card.dark : card.color;
+        inner.textContent = card.code;
+        node.append(inner);
+        dim.append(node);
+        return { node: node, from: from, to: to, landing: move(node, from, to, ms, "cubic-bezier(.2,.9,.25,1)") };
+      }
       var bar = document.createElement("i");
       bar.style.background = theme === "dark" ? card.dark : card.color;
       var label = document.createElement("span");
@@ -309,6 +332,9 @@ const SCRIPT = `
   document.querySelectorAll(".rows button").forEach(function (button) {
     button.addEventListener("click", function () { setRows(button.dataset.rows); });
   });
+  document.querySelectorAll(".styles button").forEach(function (button) {
+    button.addEventListener("click", function () { setStyle(button.dataset.style); });
+  });
   toggle.addEventListener("click", function () {
     var theme = root.dataset.theme === "dark" ? "light" : "dark";
     save(theme);
@@ -316,6 +342,9 @@ const SCRIPT = `
   });
 
   narrow.addEventListener("change", function () { if (!dialog) show(root.dataset.theme === "dark" ? "dark" : "light"); });
+  document.querySelectorAll(".styles button").forEach(function (button) {
+    button.setAttribute("aria-pressed", String(button.dataset.style === style));
+  });
   setRows(rows);
 })();
 `;
@@ -335,6 +364,8 @@ const PICK_THEME = `
 /** What the page needs to open the chain of one course: its flying cards and its graph, per theme. */
 interface Lineage {
   name: string;
+  /** Drawn as map ovals: the cards fly as rings of their colour (`color`/`dark`), not as cards. */
+  oval: boolean;
   needs: number;
   unlocks: number;
   width: number;
@@ -359,6 +390,7 @@ function lineagesOf(
   plan: StudyPlan,
   curriculum: readonly Course[],
   layout: GraphLayout,
+  style: GraphStyle = "cards",
 ): Record<CourseCode, Lineage> {
   const byCode = new Map(curriculum.map((course) => [course.code, course]));
   const result: Record<CourseCode, Lineage> = {};
@@ -373,13 +405,17 @@ function lineagesOf(
       // Always one board, whichever layout the page shows.
       rows: "single" as const,
       layout,
+      style,
     };
     const light = buildGraph(plan, curriculum, { ...options, theme: "light" });
     const dark = buildGraph(plan, curriculum, { ...options, theme: "dark" });
     // A course on several boards flies as one card: the first it is drawn on.
     const seen = new Set<CourseCode>();
+    const oval = style === "map";
+    const darkColour = new Map(dark.cards.map((card) => [card.code, card.colour]));
     result[code] = {
       name,
+      oval,
       needs: needs.size,
       unlocks: unlocks.size,
       width: light.width,
@@ -390,8 +426,9 @@ function lineagesOf(
           code: card.code,
           name: card.name,
           hours: byCode.get(card.code)?.hours ?? 0,
-          color: AREAS[areaOf(card.code)].color,
-          dark: AREAS[areaOf(card.code)].dark,
+          // A card's bar shows its area; an oval's ring, its own colour in each theme.
+          color: oval ? card.colour! : AREAS[areaOf(card.code)].color,
+          dark: oval ? darkColour.get(card.code)! : AREAS[areaOf(card.code)].dark,
           x: card.x,
           y: card.y,
           width: card.width,
@@ -409,6 +446,10 @@ const MODES: readonly GraphRows[] = ["split", "single"];
 const DRAWINGS = [...MODES, "tall"] as const;
 const THEMES = ["light", "dark"] as const;
 const ROW_LABELS: Record<GraphRows, string> = { split: "Varias filas", single: "Una fila" };
+const STYLE_OPTIONS: { value: GraphStyle; label: string }[] = [
+  { value: "cards", label: "Tarjetas" },
+  { value: "map", label: "Mapa" },
+];
 
 /** JSON that is safe inside a <script> element: nothing in it can close the element or open a comment. */
 const scriptJson = (value: unknown) =>
@@ -418,14 +459,15 @@ const scriptJson = (value: unknown) =>
 
 /**
  * A single self-contained HTML page that shows the plan's graph, read-only: light and dark
- * drawings to switch between, the same hover focus as the app, and the animated chain of a course
- * on click. It needs no server and loads nothing from outside. Course names reach the page only
+ * drawings to switch between, cards or the map, the same hover focus as the app, and the animated
+ * chain of a course on click. `style` is the one it starts on. It needs no server and loads nothing from outside. Course names reach the page only
  * through escaped SVG, `escape` and `textContent`.
  */
 export function buildInteractiveHtml(
   plan: StudyPlan,
   curriculum: readonly Course[],
   rows: GraphRows,
+  style: GraphStyle = "cards",
   generated = new Date(),
 ): string {
   // Every combination is drawn up front: the page has no code to lay out a graph.
@@ -439,6 +481,11 @@ export function buildInteractiveHtml(
           : buildGraph(plan, curriculum, { rows: mode, theme }),
     })),
   );
+  const maps = THEMES.map((theme) => ({
+    theme,
+    graph: buildGraph(plan, curriculum, { style: "map", theme }),
+  }));
+  const mapWidth = maps[0]!.graph.width;
   const width = drawn[0]!.graph.width;
   const tallWidth = drawn.find((entry) => entry.mode === "tall")!.graph.width;
   const name = escape(plan.name);
@@ -451,9 +498,9 @@ export function buildInteractiveHtml(
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     `<title>${name} · Planificador UNRN</title>`,
     `<script>${PICK_THEME}</script>`,
-    `<style>${STYLES}@media (min-width:768px){#board{min-width:${width}px;max-width:${Math.round(width * 1.5)}px}}@media (max-width:767px){#board{max-width:${Math.round(tallWidth * 1.5)}px}}</style>`,
+    `<style>${STYLES}@media (min-width:768px){#board{min-width:${width}px;max-width:${Math.round(width * 1.5)}px}}@media (max-width:767px){#board{max-width:${Math.round(tallWidth * 1.5)}px}}body[data-style=map] #board{min-width:${mapWidth}px;max-width:${Math.round(mapWidth * 1.5)}px}body[data-style=map] .rows{display:none}</style>`,
     "</head>",
-    `<body data-rows="${rows}">`,
+    `<body data-rows="${rows}" data-style="${style}">`,
     "<header>",
     MARK,
     `<div class="brand"><strong>${name}</strong><span>Planificador de cursada UNRN · vista de solo lectura · ${date}</span></div>`,
@@ -461,6 +508,9 @@ export function buildInteractiveHtml(
     "</header>",
     "<main>",
     '<div class="bar"><p class="hint"><span class="mouse">Pasá el cursor sobre una materia para ver sus correlativas, o hacé click para verla aparte con las que tiene a un paso.</span><span class="touch">Tocá una materia para verla aparte con las que tiene a un paso.</span></p>',
+    `<div class="styles" role="group" aria-label="Estilo del gráfico">${STYLE_OPTIONS.map(
+      ({ value, label }) => `<button type="button" data-style="${value}">${label}</button>`,
+    ).join("")}</div>`,
     `<div class="rows" role="group" aria-label="Correlativas a distancia">${MODES.map(
       (mode) => `<button type="button" data-rows="${mode}">${ROW_LABELS[mode]}</button>`,
     ).join("")}</div></div>`,
@@ -470,8 +520,10 @@ export function buildInteractiveHtml(
     ...drawn.map(
       ({ mode, theme, graph }) => `<template id="svg-${mode}-${theme}">${graph.svg}</template>`,
     ),
+    ...maps.map(({ theme, graph }) => `<template id="svg-map-${theme}">${graph.svg}</template>`),
     `<script type="application/json" id="lineages">${scriptJson(lineagesOf(plan, curriculum, "wide"))}</script>`,
     `<script type="application/json" id="lineages-tall">${scriptJson(lineagesOf(plan, curriculum, "tall"))}</script>`,
+    `<script type="application/json" id="lineages-map">${scriptJson(lineagesOf(plan, curriculum, "wide", "map"))}</script>`,
     `<script>${SCRIPT}</script>`,
     "</body>",
     "</html>",
@@ -483,10 +535,11 @@ export function exportInteractive(
   plan: StudyPlan,
   curriculum: readonly Course[],
   rows: GraphRows,
+  style: GraphStyle,
   baseName: string,
 ) {
   downloadBlob(
     `${baseName}.html`,
-    new Blob([buildInteractiveHtml(plan, curriculum, rows)], { type: "text/html" }),
+    new Blob([buildInteractiveHtml(plan, curriculum, rows, style)], { type: "text/html" }),
   );
 }
