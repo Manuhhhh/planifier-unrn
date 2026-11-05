@@ -6,6 +6,7 @@ import type { Edge } from "./arrange.ts";
 import { AREAS, areaOf } from "./areas.ts";
 import type { Area } from "./areas.ts";
 import { splitCrowded } from "./crowding.ts";
+import { arrowColours, arrowHeads } from "./colours.ts";
 import { impliedEdges } from "./implied.ts";
 import { assignLanes } from "./lanes.ts";
 import type { Arc } from "./lanes.ts";
@@ -19,6 +20,8 @@ export interface CardBox {
   y: number;
   width: number;
   height: number;
+  /** Outline colour of the course, when the drawing gives each course one. */
+  colour?: string;
 }
 
 export interface PlanGraph {
@@ -68,7 +71,8 @@ const TITLE_H = 76;
 const SECTION_H = 28;
 const SECTION_GAP = 40;
 export const CARD_H = 56;
-export const CARD_GAP = 8;
+/** Free space between two cards of a cuatrimestre, roomy enough to tell their arrows apart. */
+export const CARD_GAP = 28;
 const CARD_INSET = 8;
 const CARD_W = COLUMN_W - 2 * CARD_INSET;
 export const LEGEND_ROW_H = 20;
@@ -308,6 +312,10 @@ export function buildPlanGraph(
     cardH: CARD_H,
   });
   const offset = placeVertically(arranged, direct, rowStep);
+  // Each course's arrows share a colour, so they can be followed across the drawing.
+  const colourOf = arrowColours(arranged.flat(), kept, theme);
+  const heads = arrowHeads();
+  const colour = (edge: Edge) => colourOf.get(edge.from) ?? c.edge;
   const cardsH = Math.max(CARD_H, ...[...offset.values()].map((value) => value + CARD_H));
 
   // Which side of its board each skipping arrow takes. They spread over as many boards as
@@ -522,11 +530,11 @@ export function buildPlanGraph(
       const growing = animate
         ? `${edge.kind === "regular" ? ' pathLength="1"' : ""}${delay(EDGE_DELAY + columnOf.get(edge.to)! * STAGGER)}`
         : "";
-      return `<path class="edge-${edge.kind}" ${ends} d="${d}" fill="none" stroke="${c.edge}" stroke-width="1.5"${dash}${growing} marker-end="url(#arrow)"/>`;
+      return `<path class="edge-${edge.kind}" ${ends} d="${d}" fill="none" stroke="${colour(edge)}" stroke-width="1.5"${dash}${growing} marker-end="url(#${heads.id(colour(edge))})"/>`;
     }
     return touchesFocus(edge)
-      ? `<path class="edge-${edge.kind} focused" ${ends} d="${d}" fill="none" stroke="${c.ink}" stroke-width="2.25"${dash} marker-end="url(#arrow-focus)"/>`
-      : `<path class="edge-${edge.kind}" ${ends} d="${d}" fill="none" stroke="${c.edge}" stroke-width="1.5" opacity="0.15"${dash} marker-end="url(#arrow)"/>`;
+      ? `<path class="edge-${edge.kind} focused" ${ends} d="${d}" fill="none" stroke="${colour(edge)}" stroke-width="2.25"${dash} marker-end="url(#${heads.id(colour(edge), 5)})"/>`
+      : `<path class="edge-${edge.kind}" ${ends} d="${d}" fill="none" stroke="${colour(edge)}" stroke-width="1.5" opacity="0.15"${dash} marker-end="url(#${heads.id(colour(edge))})"/>`;
   };
 
   /**
@@ -640,11 +648,11 @@ export function buildPlanGraph(
         key.push(text(PAD + 17, y, "!", 13, c.amber, 'font-weight="700" text-anchor="middle"'));
       } else if (entry.kind === "outer") {
         key.push(
-          `<path d="M${PAD} ${y - 3} L${PAD + 6} ${y - 3} Q${PAD + 10} ${y - 3} ${PAD + 10} ${y - 7} Q${PAD + 10} ${y - 11} ${PAD + 14} ${y - 11} L${PAD + 20} ${y - 11} Q${PAD + 24} ${y - 11} ${PAD + 24} ${y - 7} Q${PAD + 24} ${y - 3} ${PAD + 28} ${y - 3} L${PAD + 34} ${y - 3}" fill="none" stroke="${c.edge}" stroke-width="1.5" marker-end="url(#arrow)"/>`,
+          `<path d="M${PAD} ${y - 3} L${PAD + 6} ${y - 3} Q${PAD + 10} ${y - 3} ${PAD + 10} ${y - 7} Q${PAD + 10} ${y - 11} ${PAD + 14} ${y - 11} L${PAD + 20} ${y - 11} Q${PAD + 24} ${y - 11} ${PAD + 24} ${y - 7} Q${PAD + 24} ${y - 3} ${PAD + 28} ${y - 3} L${PAD + 34} ${y - 3}" fill="none" stroke="${c.edge}" stroke-width="1.5" marker-end="url(#${heads.id(c.edge)})"/>`,
         );
       } else if (entry.kind !== "note") {
         key.push(
-          `<line x1="${PAD}" y1="${y - 4}" x2="${PAD + 34}" y2="${y - 4}" stroke="${c.edge}" stroke-width="1.5"${entry.kind === "approved" ? ` stroke-dasharray="${DASH}"` : ""} marker-end="url(#arrow)"/>`,
+          `<line x1="${PAD}" y1="${y - 4}" x2="${PAD + 34}" y2="${y - 4}" stroke="${c.edge}" stroke-width="1.5"${entry.kind === "approved" ? ` stroke-dasharray="${DASH}"` : ""} marker-end="url(#${heads.id(c.edge)})"/>`,
         );
       }
       key.push(text(PAD + 48, y, entry.label, 11, entry.kind === "warning" ? c.amber : c.muted));
@@ -660,11 +668,7 @@ export function buildPlanGraph(
     });
   }
 
-  // Markers scale with the stroke, so the thicker focused arrows get a smaller head to match.
-  const marker = (id: string, fill: string, size: number) =>
-    `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="${size}" markerHeight="${size}" orient="auto">` +
-    `<path d="M0 0L10 5L0 10z" fill="${fill}"/></marker>`;
-  const defs = `<defs>${marker("arrow", c.edge, 7)}${focus === undefined ? "" : marker("arrow-focus", c.ink, 5)}</defs>`;
+  const defs = `<defs>${heads.defs()}</defs>`;
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escape(title ?? plan.name)}">` +
     [defs, ...(animate ? [BUILD_UP] : []), ...heading, ...parts, ...key].join("") +

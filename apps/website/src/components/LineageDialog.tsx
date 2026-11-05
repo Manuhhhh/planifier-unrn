@@ -5,7 +5,7 @@ import type { CourseCode, StudyPlan } from "planner";
 import { AREAS, areaOf } from "../graph/areas.ts";
 import { svgDataUrl } from "../graph/exportImage.ts";
 import { buildGraph } from "../graph/buildGraph.ts";
-import type { GraphLayout } from "../graph/buildGraph.ts";
+import type { GraphLayout, GraphStyle } from "../graph/buildGraph.ts";
 import { neighboursOf } from "../graph/planGraph.ts";
 import type { CardBox, GraphTheme } from "../graph/planGraph.ts";
 import { Close } from "./icons.tsx";
@@ -36,6 +36,7 @@ export function LineageDialog({
   code,
   theme,
   layout,
+  style = "cards",
   from,
   onClose,
 }: {
@@ -43,6 +44,8 @@ export function LineageDialog({
   code: CourseCode;
   theme: GraphTheme;
   layout: GraphLayout;
+  /** Drawing of the plan the courses fly out of: cards, or the ovals of the map. */
+  style?: GraphStyle;
   from: (code: CourseCode) => Place | undefined;
   onClose: () => void;
 }) {
@@ -59,6 +62,7 @@ export function LineageDialog({
     const animate = document.documentElement.dataset.animations !== "off";
     const graph = buildGraph(plan, CURRICULUM, {
       layout,
+      style,
       only,
       root: code,
       title: name,
@@ -68,7 +72,7 @@ export function LineageDialog({
       theme,
     });
     return { lineage, graph };
-  }, [plan, code, name, theme, layout]);
+  }, [plan, code, name, theme, layout, style]);
 
   // Fit the graph in the window below the heading, never enlarged past its drawn size.
   const [fit] = useState(() => {
@@ -170,37 +174,63 @@ export function LineageDialog({
         />
       )}
 
-      {flying.map((card, index) => (
-        <FlyingCard
-          key={card.code}
-          card={card}
-          root={card.code === code}
-          theme={theme}
-          from={from(card.code) ?? to(card)}
-          to={to(card)}
-          onLanded={index === 0 ? () => setLanded(true) : undefined}
-        />
-      ))}
+      {flying.map((card, index) => {
+        const Flying = style === "map" ? FlyingOval : FlyingCard;
+        return (
+          <Flying
+            key={card.code}
+            card={card}
+            root={card.code === code}
+            theme={theme}
+            from={from(card.code) ?? to(card)}
+            to={to(card)}
+            onLanded={index === 0 ? () => setLanded(true) : undefined}
+          />
+        );
+      })}
     </div>
   );
 }
 
-/** HTML copy of a graph card that flies between the plan's graph and the chain's graph. */
-function FlyingCard({
-  card,
-  root,
-  theme,
-  from,
-  to,
-  onLanded,
-}: {
+interface FlyingProps {
   card: CardBox;
   root: boolean;
   theme: GraphTheme;
   from: Place;
   to: Place;
   onLanded?: () => void;
-}) {
+}
+
+/** HTML copy of a map oval that flies between the plan's map and the chain's map. */
+function FlyingOval({ card, root, from, to, onLanded }: FlyingProps) {
+  return (
+    <motion.div
+      aria-hidden
+      className="pointer-events-none absolute left-0 top-0 origin-top-left"
+      style={{ width: card.width, height: card.height }}
+      initial={{ ...from }}
+      animate={{ ...to }}
+      exit={{ ...from, transition: { ...fly, stiffness: 220 } }}
+      transition={fly}
+      onAnimationComplete={() => onLanded?.()}
+    >
+      {/* Same look as the map's ovals (mapGraph.ts): its outline colour comes with the box. */}
+      <div
+        className={`flex h-full items-center justify-center rounded-[50%] bg-white text-[11px] font-semibold text-stone-900 shadow-lg dark:bg-[#2e2926] dark:text-stone-100 ${
+          root
+            ? "shadow-[0_0_0_6px_rgba(185,28,28,0.22)] dark:shadow-[0_0_0_6px_rgba(248,113,113,0.22)]"
+            : ""
+        }`}
+        style={{ border: `${root ? 3 : 1.5}px solid ${card.colour ?? "currentColor"}` }}
+      >
+        {card.code}
+      </div>
+    </motion.div>
+  );
+}
+
+/** HTML copy of a graph card that flies between the plan's graph and the chain's graph. */
+function FlyingCard({ card, root, theme, from, to, onLanded }: FlyingProps) {
   const course = byCode.get(card.code);
   return (
     <motion.div

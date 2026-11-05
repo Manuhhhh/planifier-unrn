@@ -61,7 +61,7 @@ test("a course that breaks a rule gets the amber warning, and a focus fades the 
   const { svg } = buildVerticalGraph(plan, CURRICULUM, { focus: "V1283" });
   expect(svg).toContain('class="card focused"');
   expect(svg).toContain('opacity="0.3"');
-  expect(svg).toContain("arrow-focus");
+  expect(svg).toMatch(/class="edge-regular focused"[^>]*stroke-width="2.25"/);
 });
 
 test("the root is outlined with its halo and `only` leaves the others out", () => {

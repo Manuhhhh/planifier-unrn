@@ -4,6 +4,7 @@ import { slotLabel } from "../labels.ts";
 import type { Edge } from "./arrange.ts";
 import { AREAS, areaOf } from "./areas.ts";
 import type { Area } from "./areas.ts";
+import { arrowColours, arrowHeads } from "./colours.ts";
 import { impliedEdges } from "./implied.ts";
 import {
   BUILD_UP,
@@ -100,6 +101,14 @@ export function buildVerticalGraph(
   // Rows first: where every card sits depends on nothing but the order of the cuatrimestres.
   const rowStep = CARD_H + CARD_GAP;
   const sections = slots.map((slot, column) => ({ slot, column, codes: coursesIn(slot) }));
+  // Each course's arrows share a colour, so they can be followed across the drawing.
+  const colourOf = arrowColours(
+    sections.flatMap((section) => section.codes),
+    kept,
+    theme,
+  );
+  const heads = arrowHeads();
+  const colour = (edge: Edge) => colourOf.get(edge.from) ?? c.edge;
   const cardY = new Map<CourseCode, number>();
   const sectionTops: { top: number; height: number }[] = [];
   let cursor = titleH;
@@ -288,11 +297,11 @@ export function buildVerticalGraph(
       const growing = animate
         ? `${edge.kind === "regular" ? ' pathLength="1"' : ""}${delay(EDGE_DELAY + columnOf.get(edge.to)! * STAGGER)}`
         : "";
-      return `<path class="edge-${edge.kind}" ${ends} d="${d}" fill="none" stroke="${c.edge}" stroke-width="1.5"${dash}${growing} marker-end="url(#arrow)"/>`;
+      return `<path class="edge-${edge.kind}" ${ends} d="${d}" fill="none" stroke="${colour(edge)}" stroke-width="1.5"${dash}${growing} marker-end="url(#${heads.id(colour(edge))})"/>`;
     }
     return touchesFocus(edge)
-      ? `<path class="edge-${edge.kind} focused" ${ends} d="${d}" fill="none" stroke="${c.ink}" stroke-width="2.25"${dash} marker-end="url(#arrow-focus)"/>`
-      : `<path class="edge-${edge.kind}" ${ends} d="${d}" fill="none" stroke="${c.edge}" stroke-width="1.5" opacity="0.15"${dash} marker-end="url(#arrow)"/>`;
+      ? `<path class="edge-${edge.kind} focused" ${ends} d="${d}" fill="none" stroke="${colour(edge)}" stroke-width="2.25"${dash} marker-end="url(#${heads.id(colour(edge), 5)})"/>`
+      : `<path class="edge-${edge.kind}" ${ends} d="${d}" fill="none" stroke="${colour(edge)}" stroke-width="1.5" opacity="0.15"${dash} marker-end="url(#${heads.id(colour(edge))})"/>`;
   };
   const arrows = routes.map((route, index) => draw(route.edge, path(route, index)));
   // The implied arrows of the focus ride the right margin, past every lane of the drawing.
@@ -348,7 +357,7 @@ export function buildVerticalGraph(
         key.push(text(PAD + 17, y, "!", 13, c.amber, 'font-weight="700" text-anchor="middle"'));
       } else {
         key.push(
-          `<line x1="${PAD}" y1="${y - 4}" x2="${PAD + 34}" y2="${y - 4}" stroke="${c.edge}" stroke-width="1.5"${entry.kind === "approved" ? ` stroke-dasharray="${DASH}"` : ""} marker-end="url(#arrow)"/>`,
+          `<line x1="${PAD}" y1="${y - 4}" x2="${PAD + 34}" y2="${y - 4}" stroke="${c.edge}" stroke-width="1.5"${entry.kind === "approved" ? ` stroke-dasharray="${DASH}"` : ""} marker-end="url(#${heads.id(c.edge)})"/>`,
         );
       }
       key.push(text(PAD + 48, y, entry.label, 11, entry.kind === "warning" ? c.amber : c.muted));
@@ -364,10 +373,7 @@ export function buildVerticalGraph(
     });
   }
 
-  const marker = (id: string, fill: string, size: number) =>
-    `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="${size}" markerHeight="${size}" orient="auto">` +
-    `<path d="M0 0L10 5L0 10z" fill="${fill}"/></marker>`;
-  const defs = `<defs>${marker("arrow", c.edge, 7)}${focus === undefined ? "" : marker("arrow-focus", c.ink, 5)}</defs>`;
+  const defs = `<defs>${heads.defs()}</defs>`;
   const head = [
     `<rect width="${width}" height="${height}" fill="${c.page}"/>`,
     ...heading.map((line, index) =>
