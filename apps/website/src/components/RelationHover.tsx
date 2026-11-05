@@ -1,16 +1,20 @@
 import { AnimatePresence, motion } from "motion/react";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { CURRICULUM, planProblems } from "planner";
+import { CURRICULUM, planProblems, slotCourses } from "planner";
 import type { CourseCode, StudyPlan } from "planner";
 import { LEGEND_H, NODE_H, NODE_W, edgePath, layoutDiagram } from "../diagram/layout.ts";
 import { Check, Warning } from "./icons.tsx";
 import { placeDiagram } from "../diagram/placement.ts";
 import type { Placed } from "../diagram/layout.ts";
-import { ordinal } from "../labels.ts";
+import { svgDataUrl } from "../graph/exportImage.ts";
+import { buildMapGraph } from "../graph/mapGraph.ts";
+import { useDarkMode } from "../hooks/useDarkMode.ts";
+import { ordinal, slotLabel } from "../labels.ts";
 
 interface Hovered {
-  code: CourseCode;
+  /** A course shows what it needs and enables; a cuatrimestre, the same for all its courses. */
+  what: { code: CourseCode } | { slot: number };
   rect: DOMRect;
   /** The plan it was shown for; the diagram is hidden as soon as the plan changes. */
   plan: StudyPlan;
@@ -18,6 +22,7 @@ interface Hovered {
 
 interface HoverControls {
   show: (code: CourseCode, element: Element) => void;
+  showTerm: (slot: number, element: Element) => void;
   hide: () => void;
 }
 
@@ -51,7 +56,10 @@ export function HoverProvider({ plan, children }: { plan: StudyPlan; children: R
   }, []);
 
   const controls: HoverControls = {
-    show: (code, element) => setHovered({ code, rect: element.getBoundingClientRect(), plan }),
+    show: (code, element) =>
+      setHovered({ what: { code }, rect: element.getBoundingClientRect(), plan }),
+    showTerm: (slot, element) =>
+      setHovered({ what: { slot }, rect: element.getBoundingClientRect(), plan }),
     hide: () => setHovered(null),
   };
 
@@ -59,7 +67,17 @@ export function HoverProvider({ plan, children }: { plan: StudyPlan; children: R
     <HoverContext.Provider value={controls}>
       {children}
       <AnimatePresence>
-        {hovered && hovered.plan === plan && <Popover key={hovered.code} hovered={hovered} />}
+        {hovered &&
+          hovered.plan === plan &&
+          ("code" in hovered.what ? (
+            <Popover key={hovered.what.code} hovered={hovered} code={hovered.what.code} />
+          ) : (
+            <TermPopover
+              key={`term-${hovered.what.slot}`}
+              hovered={hovered}
+              slot={hovered.what.slot}
+            />
+          ))}
       </AnimatePresence>
     </HoverContext.Provider>
   );
@@ -84,8 +102,81 @@ export function useCourseHover(code: CourseCode) {
   };
 }
 
-function Popover({ hovered }: { hovered: Hovered }) {
-  const { code, rect, plan } = hovered;
+/**
+ * Props that make an element show, on hover or keyboard focus, the map of a cuatrimestre: its
+ * courses, the ones they need and the ones planned after them that need them.
+ */
+export function useTermHover(slot: number) {
+  const controls = useContext(HoverContext);
+  if (!controls) throw new Error("useTermHover needs a HoverProvider");
+
+  return {
+    onPointerEnter: (event: React.PointerEvent<Element>) => {
+      if (event.pointerType !== "touch") controls.showTerm(slot, event.currentTarget);
+    },
+    onPointerLeave: controls.hide,
+    onFocus: (event: React.FocusEvent<Element>) => {
+      if (event.target.matches(":focus-visible")) controls.showTerm(slot, event.currentTarget);
+    },
+    onBlur: controls.hide,
+  };
+}
+
+/** Share of the window the map of a cuatrimestre may take, so it never hides the whole plan. */
+const TERM_MAX_W = 0.9;
+const TERM_MAX_H = 0.7;
+
+function TermPopover({ hovered, slot }: { hovered: Hovered; slot: number }) {
+  const { rect, plan } = hovered;
+  const theme = useDarkMode() ? "dark" : "light";
+  const graph = useMemo(
+    () =>
+      buildMapGraph(plan, CURRICULUM, {
+        about: new Set(slotCourses(plan, slot)),
+        title: slotLabel(plan, slot),
+        theme,
+        // The preview is drawn small: closer together and with larger text, so it stays legible.
+        compact: true,
+      }),
+    [plan, slot, theme],
+  );
+  const scale = Math.min(
+    1,
+    (window.innerWidth * TERM_MAX_W) / graph.width,
+    (window.innerHeight * TERM_MAX_H) / graph.height,
+  );
+  const size = { width: graph.width * scale, height: graph.height * scale };
+  const { left, top } = placeDiagram(
+    rect,
+    { width: size.width + 2, height: size.height + 2 },
+    { width: window.innerWidth, height: window.innerHeight },
+  );
+
+  return (
+    <motion.div
+      role="tooltip"
+      data-testid="term-map"
+      className="pointer-events-none fixed z-10 overflow-hidden rounded-[10px] border border-stone-200 shadow-xl dark:border-stone-700"
+      style={{ left, top }}
+      initial={{ opacity: 0, y: 12, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.08 } }}
+      transition={{ duration: 0.15 }}
+    >
+      {/* An <img> never runs anything inside the SVG, so plan names can't inject markup. */}
+      <img
+        src={svgDataUrl(graph.svg)}
+        alt={`Correlativas de ${slotLabel(plan, slot)}`}
+        width={size.width}
+        height={size.height}
+        className="block"
+      />
+    </motion.div>
+  );
+}
+
+function Popover({ hovered, code }: { hovered: Hovered; code: CourseCode }) {
+  const { rect, plan } = hovered;
   const { width, height } = layoutDiagram(code, CURRICULUM);
   // The popover has a 1px border on every side, so it is 2px larger than the diagram it holds.
   const { left, top } = placeDiagram(

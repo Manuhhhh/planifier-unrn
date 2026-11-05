@@ -16,7 +16,7 @@ import type { PlanProblem, StudyPlan } from "planner";
 import { describeProblem, slotLabel } from "../labels.ts";
 import { useConfirm } from "./Confirm.tsx";
 import { CircleX, Close, Eraser, Shuffle, Warning } from "./icons.tsx";
-import { useCourseHover } from "./RelationHover.tsx";
+import { useCourseHover, useTermHover } from "./RelationHover.tsx";
 import { Button, IconButton, mutedClass, problemClass } from "./ui.tsx";
 
 const byCode = new Map(CURRICULUM.map((course) => [course.code, course]));
@@ -95,6 +95,7 @@ function Slot({
   const count = `${courses.length} ${courses.length === 1 ? "materia" : "materias"}`;
   const removable = slot !== APPROVED_SLOT && plan.terms.length > 1;
   const active = slot === plan.active;
+  const termHover = useTermHover(slot);
 
   const removeThisTerm = async () => {
     const confirmed =
@@ -135,7 +136,11 @@ function Slot({
           transition={spring}
         />
       )}
-      <div className="flex flex-wrap items-center gap-x-2">
+      {/* The heading shows the cuatrimestre's map on hover; its courses show their own diagram. */}
+      <div
+        className="flex flex-wrap items-center gap-x-2"
+        {...(courses.length > 0 ? termHover : {})}
+      >
         <button
           type="button"
           onClick={() => onChange(goTo(plan, slot))}
